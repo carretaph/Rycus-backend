@@ -2,6 +2,7 @@ package com.rycus.Rycus_backend.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
@@ -22,12 +23,14 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(
-                                "/auth/**",
-                                "/health",
-                                "/hello",
-                                "/"
-                        ).permitAll()
+                        // ✅ MUY IMPORTANTE para el preflight CORS
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // endpoints públicos
+                        .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers("/", "/health", "/hello").permitAll()
+
+                        // por ahora libre (luego lo restringimos)
                         .anyRequest().permitAll()
                 );
 
@@ -38,7 +41,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // ✅ Permitir Frontend en Vercel + localhost
+        // ✅ Permitir Vercel + localhost
         config.setAllowedOriginPatterns(List.of(
                 "http://localhost:*",
                 "http://127.0.0.1:*",
@@ -50,7 +53,7 @@ public class SecurityConfig {
         config.setAllowedHeaders(List.of("*"));
         config.setExposedHeaders(List.of("*"));
 
-        // Importante: si no usas cookies, déjalo false
+        // Si NO usas cookies/sessions, déjalo en false (con Bearer token está ok)
         config.setAllowCredentials(false);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
