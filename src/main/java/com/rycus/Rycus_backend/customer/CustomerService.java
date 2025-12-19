@@ -31,11 +31,22 @@ public class CustomerService {
     }
 
     // =========================================
-    // 2) MY CUSTOMERS (TEMPORAL)
-    //    Devuelve todos los customers sin filtrar.
+    // 2) MY CUSTOMERS: lista REAL por usuario
     // =========================================
     public List<Customer> getCustomersForUser(String userEmail) {
-        return customerRepository.findAll();
+        String email = safeTrim(userEmail);
+        if (email == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "User email is required to fetch personal customers"
+            );
+        }
+
+        return userCustomerRepository
+                .findByUserEmailIgnoreCaseOrderByLinkedAtDesc(email)
+                .stream()
+                .map(UserCustomer::getCustomer)
+                .collect(Collectors.toList());
     }
 
     // =========================================
@@ -52,7 +63,7 @@ public class CustomerService {
     }
 
     // =========================================
-    // 4) Crear customer GLOBAL con validación duplicado
+    // 4) Crear GLOBAL (solo crear) con validación duplicado
     // =========================================
     public Customer createCustomer(Customer customer) {
         Customer prepared = normalize(customer);
@@ -61,7 +72,7 @@ public class CustomerService {
     }
 
     // =========================================
-    // 5) Crear o reutilizar customer GLOBAL + Link a usuario
+    // 5) Crear o reutilizar GLOBAL + Link a usuario
     // =========================================
     @Transactional
     public Customer createOrLinkCustomer(String userEmail, Customer incoming) {
@@ -93,7 +104,7 @@ public class CustomerService {
     }
 
     // =========================================
-    // 6) Link para reviews
+    // 6) Link para My Customers (también se usa en reviews)
     // =========================================
     @Transactional
     public void linkCustomerToUserById(String userEmail, Long customerId) {
