@@ -51,7 +51,8 @@ public class CustomerController {
 
     // =========================================
     // POST /customers
-    // - Si viene userEmail => crea o reutiliza customer GLOBAL y lo linkea a My Customers
+    // - Si viene userEmail => crea o reutiliza customer GLOBAL
+    //   y lo linkea a "My Customers"
     // - Si no viene userEmail => crea customer GLOBAL (compatibilidad)
     // =========================================
     @PostMapping
