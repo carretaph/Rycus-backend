@@ -72,6 +72,19 @@ public class CustomerController {
     }
 
     // =========================================
+    // POST /customers/{id}/link
+    // Linkea un customer YA EXISTENTE a un usuario (My Customers)
+    // =========================================
+    @PostMapping("/{id}/link")
+    public ResponseEntity<Void> linkExistingCustomerToUser(
+            @PathVariable Long id,
+            @RequestParam("userEmail") String userEmail
+    ) {
+        customerService.linkCustomerToUserById(userEmail, id);
+        return ResponseEntity.noContent().build();
+    }
+
+    // =========================================
     // PUT /customers/{id}
     // =========================================
     @PutMapping("/{id}")
