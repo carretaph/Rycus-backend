@@ -51,8 +51,7 @@ public class CustomerController {
 
     // =========================================
     // POST /customers
-    // - Si viene userEmail => crea o reutiliza customer GLOBAL
-    //   y lo linkea a "My Customers"
+    // - Si viene userEmail => crea o reutiliza customer GLOBAL y lo linkea a My Customers
     // - Si no viene userEmail => crea customer GLOBAL (compatibilidad)
     // =========================================
     @PostMapping
@@ -73,10 +72,11 @@ public class CustomerController {
 
     // =========================================
     // POST /customers/{id}/link
-    // Linkea un customer YA EXISTENTE a un usuario (My Customers)
+    // Linkea un customer EXISTENTE a un usuario (My Customers)
+    // Ej: POST /customers/1/link?userEmail=test1@rycus.com
     // =========================================
     @PostMapping("/{id}/link")
-    public ResponseEntity<Void> linkExistingCustomerToUser(
+    public ResponseEntity<Void> linkCustomerToUser(
             @PathVariable Long id,
             @RequestParam("userEmail") String userEmail
     ) {
