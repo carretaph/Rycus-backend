@@ -1,5 +1,6 @@
 package com.rycus.Rycus_backend.customer;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 
 @Entity
@@ -15,6 +16,7 @@ import jakarta.persistence.*;
                 @UniqueConstraint(name = "uk_customers_email", columnNames = {"email"})
         }
 )
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Customer {
 
     @Id
@@ -43,7 +45,7 @@ public class Customer {
     private String zipCode;
 
     @Column(length = 30)
-    private String customerType; // HOMEOWNER, BUSINESS, etc.
+    private String customerType;
 
     @Column(length = 300)
     private String tags;
