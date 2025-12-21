@@ -37,9 +37,10 @@ public class CustomerService {
     // =========================================
     public List<Customer> getCustomersForUser(String userEmail) {
         String email = safeTrim(userEmail);
+
+        // Si no viene email → devolvemos GLOBAL (para no romper nada)
         if (email == null) {
-            // Si no viene email, no es error de servidor → lista vacía
-            return Collections.emptyList();
+            return customerRepository.findAll();
         }
 
         try {
