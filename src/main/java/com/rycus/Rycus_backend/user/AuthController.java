@@ -1,10 +1,22 @@
 package com.rycus.Rycus_backend.user;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/auth")
+@CrossOrigin(
+        origins = {
+                "https://rycus.app",
+                "https://www.rycus.app",
+                "http://localhost:5173"
+        },
+        allowCredentials = "true"
+)
 public class AuthController {
 
     private final UserService userService;
@@ -13,20 +25,20 @@ public class AuthController {
         this.userService = userService;
     }
 
-    // ============================
-    // REGISTRO
-    // ============================
+    // ================================
+    // REGISTER
+    // ================================
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@RequestBody AuthRequest request) {
 
-        // Compatibilidad: toma name o fullName
+        // Usa el nombre “efectivo”: primero name, si no fullName
         String effectiveName = request.getEffectiveName();
 
         User user = userService.registerUser(
-                effectiveName,           // nombre completo
-                request.getEmail(),      // email
-                request.getPassword(),   // password
-                request.getPhone()       // phone (puede venir null)
+                effectiveName,
+                request.getEmail(),
+                request.getPassword(),
+                request.getPhone()   // 🔹 coincide con tu UserService
         );
 
         return ResponseEntity.ok(
@@ -34,9 +46,9 @@ public class AuthController {
         );
     }
 
-    // ============================
+    // ================================
     // LOGIN
-    // ============================
+    // ================================
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
 
