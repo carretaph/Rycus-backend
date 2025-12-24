@@ -5,14 +5,6 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/auth")
-@CrossOrigin(
-        origins = {
-                "https://rycus.app",
-                "https://www.rycus.app",
-                "http://localhost:5173"
-        },
-        allowCredentials = "true"
-)
 public class AuthController {
 
     private final UserService userService;
@@ -21,17 +13,17 @@ public class AuthController {
         this.userService = userService;
     }
 
-    // ============================
-    // REGISTER
-    // ============================
+    // ================================
+    // REGISTRO
+    // ================================
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(@RequestBody AuthRequest request) {
 
-        // usamos el nombre efectivo (name o fullName)
-        String fullName = request.getEffectiveName();
+        // Usamos el nombre efectivo (name o fullName)
+        String effectiveName = request.getEffectiveName();
 
         User user = userService.registerUser(
-                fullName,
+                effectiveName,
                 request.getEmail(),
                 request.getPassword(),
                 request.getPhone()
@@ -39,12 +31,13 @@ public class AuthController {
 
         return ResponseEntity.ok(
                 new AuthResponse("User registered successfully: " + user.getFullName())
+                // el campo "user" del AuthResponse quedará null (como antes)
         );
     }
 
-    // ============================
+    // ================================
     // LOGIN
-    // ============================
+    // ================================
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
 
@@ -55,6 +48,7 @@ public class AuthController {
 
         return ResponseEntity.ok(
                 new AuthResponse("Login successful for: " + user.getFullName())
+                // igual, solo mandamos el mensaje
         );
     }
 }
