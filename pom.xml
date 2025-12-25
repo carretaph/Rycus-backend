@@ -42,24 +42,24 @@
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
 
-        <!-- THYMELEAF (opcional, pero lo tenías) -->
+        <!-- THYMELEAF (opcional) -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-thymeleaf</artifactId>
         </dependency>
 
-        <!-- POSTGRESQL (Render) -->
+        <!-- POSTGRESQL (Render / Producción) -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
 
-        <!-- H2 SOLO PARA TEST -->
+        <!-- H2 para desarrollo local (runtime) -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <scope>test</scope>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- LOMBOK -->
