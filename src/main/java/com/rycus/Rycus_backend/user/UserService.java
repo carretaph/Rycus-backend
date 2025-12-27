@@ -1,15 +1,23 @@
 package com.rycus.Rycus_backend.user;
 
+import com.rycus.Rycus_backend.repository.ReviewRepository;
 import com.rycus.Rycus_backend.repository.UserRepository;
+import com.rycus.Rycus_backend.review.Review;
 import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
+    private final ReviewRepository reviewRepository;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository,
+                       ReviewRepository reviewRepository) {
         this.userRepository = userRepository;
+        this.reviewRepository = reviewRepository;
     }
 
     // REGISTRAR NUEVO USUARIO
@@ -41,7 +49,7 @@ public class UserService {
         // POR AHORA guardamos el password tal cual (luego lo encriptamos)
         user.setPassword(password);
 
-        // ✅ NEW
+        // Teléfono opcional
         user.setPhone(cleanPhone);
 
         user.setRole("USER");
@@ -62,5 +70,50 @@ public class UserService {
         }
 
         return user;
+    }
+
+    // ================================
+    // 🔍 BUSCAR USUARIOS POR NOMBRE / EMAIL
+    // ================================
+    public List<UserSummaryDto> searchUsers(String query) {
+        String q = (query == null) ? "" : query.trim();
+        if (q.isEmpty()) {
+            return List.of();
+        }
+
+        // Buscar usuarios por nombre o email (case-insensitive)
+        List<User> users = userRepository
+                .findByFullNameContainingIgnoreCaseOrEmailContainingIgnoreCase(q, q);
+
+        List<UserSummaryDto> result = new ArrayList<>();
+
+        for (User user : users) {
+            // Traer reviews creados por este usuario (usamos su email)
+            List<Review> reviews = reviewRepository.findByCreatedByIgnoreCase(user.getEmail());
+            long totalReviews = reviews.size();
+
+            double averageRating = 0.0;
+            if (totalReviews > 0) {
+                double sum = 0.0;
+                for (Review r : reviews) {
+                    Integer overall = r.getRatingOverall();
+                    Integer payment = r.getRatingPayment();
+                    int value = (overall != null) ? overall
+                            : (payment != null ? payment : 0);
+                    sum += value;
+                }
+                averageRating = sum / totalReviews;
+            }
+
+            result.add(new UserSummaryDto(
+                    user.getId(),
+                    user.getFullName(),
+                    user.getEmail(),
+                    totalReviews,
+                    averageRating
+            ));
+        }
+
+        return result;
     }
 }
