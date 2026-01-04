@@ -1,3 +1,4 @@
+// src/main/java/com/rycus/Rycus_backend/review/ReviewService.java
 package com.rycus.Rycus_backend.review;
 
 import com.rycus.Rycus_backend.repository.ReviewRepository;
@@ -19,7 +20,25 @@ public class ReviewService {
         return reviewRepository.findByCustomerIdOrderByCreatedAtDesc(customerId);
     }
 
+    // Crear review (confiando en createdBy que viene del frontend)
     public Review createReview(Review review) {
+
+        // DEBUG: para ver qué llega desde el frontend
+        System.out.println("=== NEW REVIEW ===");
+        System.out.println("createdBy (body): " + review.getCreatedBy());
+        System.out.println("userEmail (body): " + review.getUserEmail());
+
+        // Si createdBy viene vacío pero tenemos userEmail,
+        // usamos el prefijo del email como "nombre"
+        if (review.getCreatedBy() == null || review.getCreatedBy().isBlank()) {
+            String email = review.getUserEmail();
+            if (email != null && !email.isBlank()) {
+                String beforeAt = email.split("@")[0];
+                review.setCreatedBy(beforeAt);
+            }
+        }
+
+        // El @PrePersist de Review se encarga de createdAt
         return reviewRepository.save(review);
     }
 

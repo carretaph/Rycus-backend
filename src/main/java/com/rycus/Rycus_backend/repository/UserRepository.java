@@ -12,9 +12,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByEmail(String email);
 
+    Optional<User> findByEmailIgnoreCase(String email);
+
     boolean existsByEmail(String email);
 
-    // Buscar usuarios por nombre o email (case-insensitive)
     List<User> findByFullNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
             String fullName,
             String email

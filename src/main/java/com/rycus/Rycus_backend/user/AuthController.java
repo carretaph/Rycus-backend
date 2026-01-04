@@ -25,13 +25,11 @@ public class AuthController {
         User user = userService.registerUser(
                 effectiveName,
                 request.getEmail(),
-                request.getPassword(),
-                request.getPhone()
+                request.getPassword()
         );
 
         return ResponseEntity.ok(
                 new AuthResponse("User registered successfully: " + user.getFullName())
-                // el campo "user" del AuthResponse quedará null (como antes)
         );
     }
 
@@ -48,7 +46,6 @@ public class AuthController {
 
         return ResponseEntity.ok(
                 new AuthResponse("Login successful for: " + user.getFullName())
-                // igual, solo mandamos el mensaje
         );
     }
 }

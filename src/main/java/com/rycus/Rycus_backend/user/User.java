@@ -12,18 +12,32 @@ public class User {
 
     private String fullName;
 
-    @Column(unique = true)
+    @Column(unique = true, nullable = false)
     private String email;
 
     private String password;
 
     private String role; // USER, ADMIN
 
-    // ✅ NEW
+    // =========================
+    // Profile / public fields
+    // =========================
     private String phone;
+    private String businessName;
+    private String industry;
+    private String city;
+    private String state;
 
-    public User() {
-    }
+    // ✅ IMPORTANTE: avatar grande (base64 o url)
+    @Lob
+    @Column(name = "avatar_url", columnDefinition = "CLOB")
+    private String avatarUrl;
+
+    public User() {}
+
+    // =========================
+    // Getters & Setters
+    // =========================
 
     public Long getId() {
         return id;
@@ -65,12 +79,51 @@ public class User {
         this.role = role;
     }
 
-    // ✅ NEW getters/setters
     public String getPhone() {
         return phone;
     }
 
     public void setPhone(String phone) {
         this.phone = phone;
+    }
+
+    public String getBusinessName() {
+        return businessName;
+    }
+
+    public void setBusinessName(String businessName) {
+        this.businessName = businessName;
+    }
+
+    public String getIndustry() {
+        return industry;
+    }
+
+    public void setIndustry(String industry) {
+        this.industry = industry;
+    }
+
+    public String getCity() {
+        return city;
+    }
+
+    public void setCity(String city) {
+        this.city = city;
+    }
+
+    public String getState() {
+        return state;
+    }
+
+    public void setState(String state) {
+        this.state = state;
+    }
+
+    public String getAvatarUrl() {
+        return avatarUrl;
+    }
+
+    public void setAvatarUrl(String avatarUrl) {
+        this.avatarUrl = avatarUrl;
     }
 }
