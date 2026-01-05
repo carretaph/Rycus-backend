@@ -24,6 +24,10 @@
 
     <dependencies>
 
+        <!-- ===============================
+             SPRING CORE
+        ================================ -->
+
         <!-- SPRING WEB -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -48,6 +52,10 @@
             <artifactId>spring-boot-starter-thymeleaf</artifactId>
         </dependency>
 
+        <!-- ===============================
+             DATABASES
+        ================================ -->
+
         <!-- POSTGRESQL (Render / Producción) -->
         <dependency>
             <groupId>org.postgresql</groupId>
@@ -55,12 +63,26 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- H2 para desarrollo local (runtime) -->
+        <!-- H2 para desarrollo local -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
         </dependency>
+
+        <!-- ===============================
+             CLOUDINARY (AVATARS / IMAGES)
+        ================================ -->
+
+        <dependency>
+            <groupId>com.cloudinary</groupId>
+            <artifactId>cloudinary-http44</artifactId>
+            <version>1.38.0</version>
+        </dependency>
+
+        <!-- ===============================
+             UTILITIES
+        ================================ -->
 
         <!-- LOMBOK -->
         <dependency>
@@ -69,7 +91,10 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- TESTING -->
+        <!-- ===============================
+             TESTING
+        ================================ -->
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
