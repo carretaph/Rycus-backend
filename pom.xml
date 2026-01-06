@@ -20,13 +20,10 @@
 
     <properties>
         <java.version>17</java.version>
+        <cloudinary.version>1.41.0</cloudinary.version>
     </properties>
 
     <dependencies>
-
-        <!-- ===============================
-             SPRING CORE
-        ================================ -->
 
         <!-- SPRING WEB -->
         <dependency>
@@ -52,10 +49,6 @@
             <artifactId>spring-boot-starter-thymeleaf</artifactId>
         </dependency>
 
-        <!-- ===============================
-             DATABASES
-        ================================ -->
-
         <!-- POSTGRESQL (Render / Producción) -->
         <dependency>
             <groupId>org.postgresql</groupId>
@@ -63,26 +56,12 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- H2 para desarrollo local -->
+        <!-- H2 para desarrollo local (runtime) -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <scope>runtime</scope>
         </dependency>
-
-        <!-- ===============================
-             CLOUDINARY (AVATARS / IMAGES)
-        ================================ -->
-
-        <dependency>
-            <groupId>com.cloudinary</groupId>
-            <artifactId>cloudinary-http44</artifactId>
-            <version>1.38.0</version>
-        </dependency>
-
-        <!-- ===============================
-             UTILITIES
-        ================================ -->
 
         <!-- LOMBOK -->
         <dependency>
@@ -91,10 +70,19 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- ===============================
-             TESTING
-        ================================ -->
+        <!-- ✅ CLOUDINARY (backend) -->
+        <dependency>
+            <groupId>com.cloudinary</groupId>
+            <artifactId>cloudinary-core</artifactId>
+            <version>${cloudinary.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.cloudinary</groupId>
+            <artifactId>cloudinary-http44</artifactId>
+            <version>${cloudinary.version}</version>
+        </dependency>
 
+        <!-- TESTING -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
