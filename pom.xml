@@ -20,7 +20,8 @@
 
     <properties>
         <java.version>17</java.version>
-        <cloudinary.version>1.41.0</cloudinary.version>
+        <!-- ✅ Cloudinary versión que sí existe en Maven Central -->
+        <cloudinary.version>2.3.0</cloudinary.version>
     </properties>
 
     <dependencies>
@@ -63,23 +64,18 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- ✅ CLOUDINARY (correcto: http5, NO http45/http44) -->
+        <dependency>
+            <groupId>com.cloudinary</groupId>
+            <artifactId>cloudinary-http5</artifactId>
+            <version>${cloudinary.version}</version>
+        </dependency>
+
         <!-- LOMBOK -->
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
-        </dependency>
-
-        <!-- ✅ CLOUDINARY (backend) -->
-        <dependency>
-            <groupId>com.cloudinary</groupId>
-            <artifactId>cloudinary-core</artifactId>
-            <version>${cloudinary.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.cloudinary</groupId>
-            <artifactId>cloudinary-http44</artifactId>
-            <version>${cloudinary.version}</version>
         </dependency>
 
         <!-- TESTING -->
