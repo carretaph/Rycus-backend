@@ -4,6 +4,7 @@ import com.rycus.Rycus_backend.customer.Customer;
 import com.rycus.Rycus_backend.repository.ReviewRepository;
 import com.rycus.Rycus_backend.repository.UserRepository;
 import com.rycus.Rycus_backend.review.Review;
+import com.rycus.Rycus_backend.user.dto.UserMiniDto;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,6 +25,34 @@ public class UserService {
                        ReviewRepository reviewRepository) {
         this.userRepository = userRepository;
         this.reviewRepository = reviewRepository;
+    }
+
+    // =========================================
+    // ✅ GET /users/by-email?email=...
+    // Mini profile para Messages/Inbox (avatar + fullName)
+    // =========================================
+    @Transactional(readOnly = true)
+    public UserMiniDto getUserMiniByEmail(String email) {
+
+        if (email == null || email.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "email is required");
+        }
+
+        String emailNormalized = email.trim().toLowerCase(Locale.ROOT);
+
+        // ✅ IMPORTANTE: evita 400 innecesarios y soporta mayúsc/minúsc
+        User user = userRepository.findByEmailIgnoreCase(emailNormalized)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        String fullName = (user.getFullName() != null && !user.getFullName().trim().isEmpty())
+                ? user.getFullName().trim()
+                : user.getEmail();
+
+        return new UserMiniDto(
+                user.getEmail(),
+                fullName,
+                user.getAvatarUrl()
+        );
     }
 
     // =========================================
@@ -99,7 +128,6 @@ public class UserService {
     public UserProfileDto getUserProfile(Long id) {
 
         User user = userRepository.findById(id)
-                // ✅ CAMBIO CLAVE: 404 en vez de 500
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         String emailLower = (user.getEmail() == null ? "" : user.getEmail().toLowerCase(Locale.ROOT));
