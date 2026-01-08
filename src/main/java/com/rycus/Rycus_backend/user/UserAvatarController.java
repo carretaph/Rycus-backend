@@ -1,14 +1,13 @@
 package com.rycus.Rycus_backend.user;
 
 import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.rycus.Rycus_backend.repository.UserRepository;
 import com.rycus.Rycus_backend.user.dto.UserMiniDto;
-import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.ResponseStatusException;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.Locale;
 import java.util.Map;
@@ -27,55 +26,55 @@ public class UserAvatarController {
     }
 
     @PostMapping("/avatar")
-    public ResponseEntity<UserMiniDto> uploadAvatar(
+    public ResponseEntity<?> uploadAvatar(
             @RequestParam("email") String email,
             @RequestPart("file") MultipartFile file
     ) {
-        // ✅ Si Cloudinary no está configurado (local), no tumbamos el backend:
+        // ✅ si en local no está configurado
         if (cloudinary == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.SERVICE_UNAVAILABLE,
-                    "Cloudinary is not configured in this environment."
-            );
+            return ResponseEntity.status(503).body("Cloudinary is not configured in this environment.");
         }
 
         if (email == null || email.trim().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "email is required");
+            return ResponseEntity.badRequest().body("email is required");
         }
         if (file == null || file.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "file is required");
+            return ResponseEntity.badRequest().body("file is required");
         }
 
         String contentType = (file.getContentType() == null)
                 ? ""
                 : file.getContentType().toLowerCase(Locale.ROOT);
-
         if (!contentType.startsWith("image/")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only image files are allowed");
+            return ResponseEntity.badRequest().body("Only image files are allowed");
         }
 
         String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
 
         User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElse(null);
+
+        if (user == null) {
+            return ResponseEntity.status(404).body("User not found");
+        }
 
         try {
             String publicId = "user_" + user.getId();
 
             @SuppressWarnings("rawtypes")
-            Map uploadResult = cloudinary.uploader().upload(file.getBytes(), Map.of(
-                    "folder", "rycus/avatars",
-                    "public_id", publicId,
-                    "overwrite", true,
-                    "resource_type", "image"
-            ));
+            Map uploadResult = cloudinary.uploader().upload(
+                    file.getBytes(),
+                    ObjectUtils.asMap(
+                            "folder", "rycus/avatars",
+                            "public_id", publicId,
+                            "overwrite", true,
+                            "resource_type", "image"
+                    )
+            );
 
             Object secureUrl = uploadResult.get("secure_url");
             if (secureUrl == null) {
-                throw new ResponseStatusException(
-                        HttpStatus.INTERNAL_SERVER_ERROR,
-                        "Cloudinary upload failed (missing secure_url)"
-                );
+                return ResponseEntity.status(500).body("Cloudinary upload failed: missing secure_url");
             }
 
             String avatarUrl = secureUrl.toString().trim();
@@ -92,11 +91,9 @@ public class UserAvatarController {
                     user.getAvatarUrl()
             ));
 
-        } catch (ResponseStatusException e) {
-            throw e;
         } catch (Exception e) {
             e.printStackTrace();
-            throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Upload failed");
+            return ResponseEntity.status(500).body("Upload failed: " + e.getMessage());
         }
     }
 }
