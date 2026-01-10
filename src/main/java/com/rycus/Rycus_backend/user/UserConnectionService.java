@@ -17,11 +17,14 @@ public class UserConnectionService {
 
     private final UserRepository userRepository;
     private final UserConnectionRepository connectionRepository;
+    private final EmailService emailService;
 
     public UserConnectionService(UserRepository userRepository,
-                                 UserConnectionRepository connectionRepository) {
+                                 UserConnectionRepository connectionRepository,
+                                 EmailService emailService) {
         this.userRepository = userRepository;
         this.connectionRepository = connectionRepository;
+        this.emailService = emailService;
     }
 
     // =====================================
@@ -95,6 +98,22 @@ public class UserConnectionService {
         connection.setCreatedAt(LocalDateTime.now());
 
         UserConnection saved = connectionRepository.save(connection);
+
+        // ✅ EMAIL: mandar aviso al receiver (NO romper si falla)
+        try {
+            String requesterName = (fromUser.getFullName() != null && !fromUser.getFullName().isBlank())
+                    ? fromUser.getFullName()
+                    : fromUser.getEmail();
+
+            emailService.sendConnectionInviteEmail(
+                    toUser.getEmail(),
+                    requesterName
+            );
+        } catch (Exception e) {
+            // Importante: NO rompemos la invitación si el mail falla.
+            System.out.println("⚠️ Email failed (connection invite): " + e.getMessage());
+        }
+
         return toDto(saved);
     }
 
@@ -142,7 +161,7 @@ public class UserConnectionService {
     }
 
     // =====================================
-    // ✅ NUEVO: Invitaciones pendientes PARA MÍ (solo count)
+    // Invitaciones pendientes PARA MÍ (solo count)
     // =====================================
     @Transactional(readOnly = true)
     public long getPendingCountForUser(String userEmail) {
