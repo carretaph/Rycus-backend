@@ -27,14 +27,22 @@ public class UserConnectionController {
         return connectionService.getConnectionsForUser(email);
     }
 
-    // 👉 NUEVO: invitaciones pendientes para mí (yo soy el receiver)
+    // Invitaciones pendientes para mí (yo soy el receiver)
     // GET /connections/pending?email=yo@test.com
     @GetMapping("/pending")
     public List<UserConnectionDto> pendingConnections(@RequestParam("email") String email) {
         return connectionService.getPendingForUser(email);
     }
 
-    // 👉 NUEVO: aceptar invitación
+    // ✅ NUEVO: SOLO EL NÚMERO de invitaciones pendientes
+    // GET /connections/pending/count?email=yo@test.com
+    @GetMapping("/pending/count")
+    public PendingCountDto pendingCount(@RequestParam("email") String email) {
+        long count = connectionService.getPendingCountForUser(email);
+        return new PendingCountDto(count);
+    }
+
+    // Aceptar invitación
     // POST /connections/{id}/accept?email=yo@test.com
     @PostMapping("/{id}/accept")
     public UserConnectionDto accept(@PathVariable Long id,
@@ -42,7 +50,7 @@ public class UserConnectionController {
         return connectionService.acceptRequest(id, email);
     }
 
-    // 👉 NUEVO: rechazar invitación
+    // Rechazar invitación
     // POST /connections/{id}/reject?email=yo@test.com
     @PostMapping("/{id}/reject")
     public void reject(@PathVariable Long id,

@@ -81,6 +81,7 @@ public class UserConnectionService {
                     || existing.getStatus() == ConnectionStatus.ACCEPTED) {
                 return toDto(existing);
             }
+
             // Si en el futuro hubiera otros estados, podríamos recrear,
             // pero por ahora solo devolvemos lo que hay.
             return toDto(existing);
@@ -103,21 +104,17 @@ public class UserConnectionService {
     @Transactional(readOnly = true)
     public List<UserConnectionDto> getConnectionsForUser(String userEmail) {
         if (!StringUtils.hasText(userEmail)) {
-            // si no hay email, no tiene sentido buscar → lista vacía
             return Collections.emptyList();
         }
 
-        // Antes lanzaba excepción; ahora devolvemos vacío si no existe
         User user = userRepository.findByEmail(userEmail).orElse(null);
         if (user == null) {
             return Collections.emptyList();
         }
 
-        // 1) Traemos TODAS las conexiones donde participa este usuario
         List<UserConnection> allConnections =
                 connectionRepository.findByRequesterOrReceiver(user, user);
 
-        // 2) Nos quedamos solo con las que están ACCEPTED
         return allConnections.stream()
                 .filter(c -> c.getStatus() == ConnectionStatus.ACCEPTED)
                 .map(this::toDto)
@@ -125,7 +122,7 @@ public class UserConnectionService {
     }
 
     // =====================================
-    // Invitaciones pendientes PARA MÍ
+    // Invitaciones pendientes PARA MÍ (lista)
     // =====================================
     @Transactional(readOnly = true)
     public List<UserConnectionDto> getPendingForUser(String userEmail) {
@@ -133,7 +130,6 @@ public class UserConnectionService {
             return Collections.emptyList();
         }
 
-        // Antes lanzaba excepción; ahora devolvemos vacío si no existe
         User user = userRepository.findByEmail(userEmail).orElse(null);
         if (user == null) {
             return Collections.emptyList();
@@ -143,6 +139,26 @@ public class UserConnectionService {
                 connectionRepository.findByReceiverAndStatus(user, ConnectionStatus.PENDING);
 
         return pending.stream().map(this::toDto).collect(Collectors.toList());
+    }
+
+    // =====================================
+    // ✅ NUEVO: Invitaciones pendientes PARA MÍ (solo count)
+    // =====================================
+    @Transactional(readOnly = true)
+    public long getPendingCountForUser(String userEmail) {
+        if (!StringUtils.hasText(userEmail)) {
+            return 0L;
+        }
+
+        User user = userRepository.findByEmail(userEmail).orElse(null);
+        if (user == null) {
+            return 0L;
+        }
+
+        List<UserConnection> pending =
+                connectionRepository.findByReceiverAndStatus(user, ConnectionStatus.PENDING);
+
+        return pending.size();
     }
 
     // =====================================
