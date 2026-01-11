@@ -40,7 +40,6 @@ public class UserService {
 
         String emailNormalized = email.trim().toLowerCase(Locale.ROOT);
 
-        // ✅ IMPORTANTE: evita 400 innecesarios y soporta mayúsc/minúsc
         User user = userRepository.findByEmailIgnoreCase(emailNormalized)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
@@ -61,15 +60,31 @@ public class UserService {
     @Transactional
     public User registerUser(String fullName, String email, String rawPassword) {
 
+        if (email == null || email.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required");
+        }
+        if (rawPassword == null || rawPassword.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password is required");
+        }
+
         String emailNormalized = email.trim().toLowerCase(Locale.ROOT);
 
-        if (userRepository.existsByEmail(emailNormalized)) {
+        // ✅ Mejor: ignora mayúsc/minúsc
+        if (userRepository.existsByEmailIgnoreCase(emailNormalized)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is already in use");
+        }
+
+        // ✅ Recomendación básica (puedes ajustar)
+        if (rawPassword.trim().length() < 6) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password must be at least 6 characters");
         }
 
         User user = new User();
         user.setFullName(fullName != null ? fullName.trim() : null);
         user.setEmail(emailNormalized);
+
+        // ⚠️ OJO: hoy guardas password en texto plano.
+        // Más adelante lo mejor es usar BCrypt.
         user.setPassword(rawPassword);
 
         if (user.getRole() == null) {
@@ -85,9 +100,16 @@ public class UserService {
     @Transactional(readOnly = true)
     public User login(String email, String rawPassword) {
 
+        if (email == null || email.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
+        }
+        if (rawPassword == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
+        }
+
         String emailNormalized = email.trim().toLowerCase(Locale.ROOT);
 
-        User user = userRepository.findByEmail(emailNormalized)
+        User user = userRepository.findByEmailIgnoreCase(emailNormalized)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password"));
 
         if (!rawPassword.equals(user.getPassword())) {
@@ -95,6 +117,57 @@ public class UserService {
         }
 
         return user;
+    }
+
+    // =========================================
+    // ✅ CHANGE EMAIL (AuthController.change-email)
+    // =========================================
+    @Transactional
+    public void changeEmail(String currentEmail, String newEmail, String password) {
+
+        if (currentEmail == null || currentEmail.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "currentEmail is required");
+        }
+        if (newEmail == null || newEmail.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "newEmail is required");
+        }
+        if (password == null || password.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "password is required");
+        }
+
+        String oldE = currentEmail.trim().toLowerCase(Locale.ROOT);
+        String newE = newEmail.trim().toLowerCase(Locale.ROOT);
+
+        if (oldE.equalsIgnoreCase(newE)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New email must be different");
+        }
+
+        // validación mínima de formato
+        if (!newE.contains("@") || !newE.contains(".")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid email format");
+        }
+
+        User user = userRepository.findByEmailIgnoreCase(oldE)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        // confirmar password (como tú lo tienes hoy)
+        if (!password.equals(user.getPassword())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid password");
+        }
+
+        // evitar duplicados (case-insensitive)
+        if (userRepository.existsByEmailIgnoreCase(newE)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is already in use");
+        }
+
+        // ✅ Update
+        user.setEmail(newE);
+        userRepository.save(user);
+
+        // ⚠️ IMPORTANTE (paso 2):
+        // Si tus mensajes guardan senderEmail/recipientEmail como texto,
+        // aquí conviene actualizar esos campos también.
+        // Lo hacemos cuando me pegues tu entidad/repo de Message.
     }
 
     // =========================================
@@ -208,7 +281,7 @@ public class UserService {
 
         String emailNormalized = email.trim().toLowerCase(Locale.ROOT);
 
-        User user = userRepository.findByEmail(emailNormalized)
+        User user = userRepository.findByEmailIgnoreCase(emailNormalized)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         if (body != null) {

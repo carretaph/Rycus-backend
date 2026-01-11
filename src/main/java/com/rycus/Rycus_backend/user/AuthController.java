@@ -5,6 +5,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/auth")
+@CrossOrigin
 public class AuthController {
 
     private final UserService userService;
@@ -47,5 +48,20 @@ public class AuthController {
         return ResponseEntity.ok(
                 new AuthResponse("Login successful for: " + user.getFullName())
         );
+    }
+
+    // ================================
+    // ✅ CHANGE EMAIL (NEW)
+    // ================================
+    @PostMapping("/change-email")
+    public ResponseEntity<AuthResponse> changeEmail(@RequestBody ChangeEmailRequest req) {
+
+        userService.changeEmail(
+                req.getCurrentEmail(),
+                req.getNewEmail(),
+                req.getPassword()
+        );
+
+        return ResponseEntity.ok(new AuthResponse("Email updated successfully"));
     }
 }
