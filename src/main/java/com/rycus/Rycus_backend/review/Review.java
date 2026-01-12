@@ -7,7 +7,18 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "reviews")
+@Table(
+        name = "reviews",
+        indexes = {
+                @Index(name = "idx_reviews_createdBy", columnList = "createdBy"),
+                @Index(name = "idx_reviews_customer", columnList = "customer_id"),
+                @Index(name = "idx_reviews_createdBy_customer", columnList = "createdBy, customer_id")
+        },
+        uniqueConstraints = {
+                // ✅ 1 review por customer por usuario
+                @UniqueConstraint(name = "uk_reviews_createdBy_customer", columnNames = {"createdBy", "customer_id"})
+        }
+)
 public class Review {
 
     @Id

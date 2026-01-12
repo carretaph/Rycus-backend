@@ -10,9 +10,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 @Service
@@ -56,9 +60,10 @@ public class UserService {
 
     // =========================================
     // REGISTRO (AuthController.register)
+    // ✅ ahora soporta ref (opcional)
     // =========================================
     @Transactional
-    public User registerUser(String fullName, String email, String rawPassword) {
+    public User registerUser(String fullName, String email, String rawPassword, String ref) {
 
         if (email == null || email.trim().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required");
@@ -91,6 +96,39 @@ public class UserService {
             user.setRole("USER");
         }
 
+        // ==============================
+        // ✅ PAYMENTS: trial 30 días
+        // ==============================
+        Instant now = Instant.now();
+        Instant trialEnd = now.plus(30, ChronoUnit.DAYS);
+
+        user.setPlanType(PlanType.FREE_TRIAL);
+        user.setTrialEndsAt(trialEnd);
+        user.setSubscriptionEndsAt(trialEnd);
+        user.setFreeMonthsBalance(0);
+
+        // ==============================
+        // ✅ REFERRAL CODE (propio)
+        // ==============================
+        user.setReferralCode(generateUniqueReferralCode());
+
+        // ==============================
+        // ✅ referredBy (si llega ref)
+        // ==============================
+        String refNormalized = safeTrim(ref);
+        if (refNormalized != null) {
+            Optional<User> referrerOpt = userRepository.findByReferralCodeIgnoreCase(refNormalized);
+
+            // solo setear si el ref existe y NO es el mismo email (por seguridad)
+            if (referrerOpt.isPresent()) {
+                User referrer = referrerOpt.get();
+                if (referrer.getEmail() != null
+                        && !referrer.getEmail().equalsIgnoreCase(emailNormalized)) {
+                    user.setReferredByEmail(referrer.getEmail());
+                }
+            }
+        }
+
         return userRepository.save(user);
     }
 
@@ -117,6 +155,42 @@ public class UserService {
         }
 
         return user;
+    }
+
+    // =========================================
+    // ✅ Subscription status (AuthController.subscriptionStatus)
+    // =========================================
+    @Transactional(readOnly = true)
+    public SubscriptionStatusResponse getSubscriptionStatus(String email) {
+        String e = safeTrim(email);
+        if (e == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "email is required");
+        }
+
+        User user = userRepository.findByEmailIgnoreCase(e.toLowerCase(Locale.ROOT))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        boolean active = isActive(user);
+
+        return new SubscriptionStatusResponse(
+                active,
+                user.getPlanType(),
+                user.getTrialEndsAt(),
+                user.getSubscriptionEndsAt(),
+                user.getFreeMonthsBalance(),
+                user.getReferralCode()
+        );
+    }
+
+    private boolean isActive(User user) {
+        if (user == null) return false;
+
+        if (user.getPlanType() == PlanType.FREE_LIFETIME) return true;
+
+        Instant end = user.getSubscriptionEndsAt();
+        if (end == null) return false;
+
+        return end.isAfter(Instant.now());
     }
 
     // =========================================
@@ -167,7 +241,6 @@ public class UserService {
         // ⚠️ IMPORTANTE (paso 2):
         // Si tus mensajes guardan senderEmail/recipientEmail como texto,
         // aquí conviene actualizar esos campos también.
-        // Lo hacemos cuando me pegues tu entidad/repo de Message.
     }
 
     // =========================================
@@ -297,5 +370,36 @@ public class UserService {
         userRepository.save(user);
 
         return getUserProfile(user.getId());
+    }
+
+    // =========================================
+    // Helpers
+    // =========================================
+    private String safeTrim(String value) {
+        if (value == null) return null;
+        String t = value.trim();
+        return t.isEmpty() ? null : t;
+    }
+
+    private String generateUniqueReferralCode() {
+        // Formato: RYCUS- + 6 chars alfanum
+        // Intentamos varias veces por si choca con unique.
+        for (int i = 0; i < 10; i++) {
+            String code = "RYCUS-" + randomAlphaNum(6);
+            boolean exists = userRepository.existsByReferralCodeIgnoreCase(code);
+            if (!exists) return code;
+        }
+        // fallback: agrega random más largo
+        return "RYCUS-" + randomAlphaNum(10);
+    }
+
+    private String randomAlphaNum(int len) {
+        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sin 0/O/1/I para evitar confusión
+        StringBuilder sb = new StringBuilder(len);
+        for (int i = 0; i < len; i++) {
+            int idx = ThreadLocalRandom.current().nextInt(chars.length());
+            sb.append(chars.charAt(idx));
+        }
+        return sb.toString();
     }
 }

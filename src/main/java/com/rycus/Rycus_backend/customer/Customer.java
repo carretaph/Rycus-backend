@@ -3,6 +3,8 @@ package com.rycus.Rycus_backend.customer;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 
+import java.time.Instant;
+
 @Entity
 @Table(
         name = "customers",
@@ -10,7 +12,11 @@ import jakarta.persistence.*;
                 @Index(name = "idx_customers_email", columnList = "email"),
                 @Index(name = "idx_customers_fullName", columnList = "fullName"),
                 @Index(name = "idx_customers_phone", columnList = "phone"),
-                @Index(name = "idx_customers_zip", columnList = "zipCode")
+                @Index(name = "idx_customers_zip", columnList = "zipCode"),
+
+                // ✅ nuevos indexes recomendados
+                @Index(name = "idx_customers_createdBy", columnList = "createdByUserId"),
+                @Index(name = "idx_customers_createdAt", columnList = "createdAt")
         },
         uniqueConstraints = {
                 @UniqueConstraint(name = "uk_customers_email", columnNames = {"email"})
@@ -50,7 +56,20 @@ public class Customer {
     @Column(length = 300)
     private String tags;
 
+    // ✅ NUEVO: quien creó este customer “global”
+    @Column(nullable = true)
+    private Long createdByUserId;
+
+    // ✅ NUEVO: cuándo fue creado
+    @Column(nullable = true)
+    private Instant createdAt;
+
     public Customer() {}
+
+    @PrePersist
+    void prePersist() {
+        if (createdAt == null) createdAt = Instant.now();
+    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -81,4 +100,10 @@ public class Customer {
 
     public String getTags() { return tags; }
     public void setTags(String tags) { this.tags = tags; }
+
+    public Long getCreatedByUserId() { return createdByUserId; }
+    public void setCreatedByUserId(Long createdByUserId) { this.createdByUserId = createdByUserId; }
+
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }

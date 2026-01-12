@@ -18,15 +18,17 @@ public class AuthController {
     // REGISTRO
     // ================================
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@RequestBody AuthRequest request) {
-
-        // Usamos el nombre efectivo (name o fullName)
+    public ResponseEntity<AuthResponse> register(
+            @RequestBody AuthRequest request,
+            @RequestParam(value = "ref", required = false) String ref
+    ) {
         String effectiveName = request.getEffectiveName();
 
         User user = userService.registerUser(
                 effectiveName,
                 request.getEmail(),
-                request.getPassword()
+                request.getPassword(),
+                ref // ✅ referral code usado (opcional)
         );
 
         return ResponseEntity.ok(
@@ -63,5 +65,16 @@ public class AuthController {
         );
 
         return ResponseEntity.ok(new AuthResponse("Email updated successfully"));
+    }
+
+    // ================================
+    // ✅ (NUEVO) Subscription status simple
+    // Frontend puede llamar para saber si está activo y fechas
+    // ================================
+    @GetMapping("/subscription-status")
+    public ResponseEntity<SubscriptionStatusResponse> subscriptionStatus(
+            @RequestParam("email") String email
+    ) {
+        return ResponseEntity.ok(userService.getSubscriptionStatus(email));
     }
 }

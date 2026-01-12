@@ -12,4 +12,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     // Reviews creados por un usuario (email), case-insensitive
     List<Review> findByCreatedByIgnoreCase(String createdBy);
+
+    // ✅ Anti-trampa: ¿ya revisó este customer?
+    boolean existsByCreatedByIgnoreCaseAndCustomer_Id(String createdBy, Long customerId);
 }

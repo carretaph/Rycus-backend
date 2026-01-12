@@ -2,13 +2,15 @@ package com.rycus.Rycus_backend.customer;
 
 import com.rycus.Rycus_backend.repository.CustomerRepository;
 import com.rycus.Rycus_backend.repository.UserCustomerRepository;
+import com.rycus.Rycus_backend.repository.UserRepository;
+import com.rycus.Rycus_backend.user.User;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -17,11 +19,14 @@ public class CustomerService {
 
     private final CustomerRepository customerRepository;
     private final UserCustomerRepository userCustomerRepository;
+    private final UserRepository userRepository;
 
     public CustomerService(CustomerRepository customerRepository,
-                           UserCustomerRepository userCustomerRepository) {
+                           UserCustomerRepository userCustomerRepository,
+                           UserRepository userRepository) {
         this.customerRepository = customerRepository;
         this.userCustomerRepository = userCustomerRepository;
+        this.userRepository = userRepository;
     }
 
     // =========================================
@@ -76,11 +81,15 @@ public class CustomerService {
     public Customer createCustomer(Customer customer) {
         Customer prepared = normalize(customer);
         validateDuplicate(prepared);
+
+        // ✅ Nuevo customer creado "en global" (sin link), no sabemos el userEmail aquí.
+        // Si quieres, podrías quitar este endpoint o pasar userEmail también.
         return customerRepository.save(prepared);
     }
 
     // =========================================
     // 5) Crear o reutilizar GLOBAL + Link a usuario
+    //    ✅ Setea createdByUserId SOLO si el customer es NUEVO
     // =========================================
     @Transactional
     public Customer createOrLinkCustomer(String userEmail, Customer incoming) {
@@ -91,18 +100,35 @@ public class CustomerService {
 
         Customer prepared = normalize(incoming);
 
+        // 👇 userId del creador (para clientes NUEVOS)
+        Long creatorUserId = getUserIdByEmailOrNull(email);
+
         Customer customer;
+
+        // Caso A: viene con email (regla principal: unique por email)
         if (prepared.getEmail() != null) {
             customer = customerRepository.findByEmailIgnoreCase(prepared.getEmail())
+                    // existe → merge (NO tocar createdByUserId)
                     .map(existing -> merge(existing, prepared))
                     .map(customerRepository::save)
-                    .orElseGet(() -> customerRepository.save(prepared));
+                    // no existe → crear NUEVO → set createdByUserId
+                    .orElseGet(() -> {
+                        prepared.setCreatedByUserId(creatorUserId); // ✅ importante
+                        return customerRepository.save(prepared);
+                    });
+
         } else {
+            // Caso B: sin email → usamos tus reglas de duplicado por name+phone o name+email
             Optional<Customer> dup = findDuplicateByYourRules(prepared);
+
             if (dup.isPresent()) {
+                // existe → merge (NO tocar createdByUserId)
                 customer = merge(dup.get(), prepared);
                 customer = customerRepository.save(customer);
+
             } else {
+                // no existe → crear NUEVO → set createdByUserId
+                prepared.setCreatedByUserId(creatorUserId); // ✅ importante
                 customer = customerRepository.save(prepared);
             }
         }
@@ -149,6 +175,7 @@ public class CustomerService {
         if (updates.getCustomerType() != null) existing.setCustomerType(updates.getCustomerType());
         if (updates.getTags() != null) existing.setTags(updates.getTags());
 
+        // ✅ NO tocar createdByUserId / createdAt aquí.
         return customerRepository.save(existing);
     }
 
@@ -229,6 +256,8 @@ public class CustomerService {
         if (incoming.getZipCode() != null) existing.setZipCode(incoming.getZipCode());
         if (incoming.getCustomerType() != null) existing.setCustomerType(incoming.getCustomerType());
         if (incoming.getTags() != null) existing.setTags(incoming.getTags());
+
+        // ✅ NO tocar createdByUserId / createdAt aquí.
         return existing;
     }
 
@@ -236,5 +265,16 @@ public class CustomerService {
         if (value == null) return null;
         String trimmed = value.trim();
         return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    private Long getUserIdByEmailOrNull(String userEmail) {
+        String e = safeTrim(userEmail);
+        if (e == null) return null;
+
+        String normalized = e.toLowerCase(Locale.ROOT);
+
+        return userRepository.findByEmailIgnoreCase(normalized)
+                .map(User::getId)
+                .orElse(null);
     }
 }

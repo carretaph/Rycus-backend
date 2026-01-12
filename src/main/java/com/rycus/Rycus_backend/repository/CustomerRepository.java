@@ -45,4 +45,23 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
            )
            """)
     List<Customer> searchByText(@Param("text") String text);
+
+    // =========================================================
+    //  🏆 MILESTONE
+    //  Cuenta clientes DISTINTOS:
+    //   - creados por este userId (Customer.createdByUserId)
+    //   - que tengan al menos 1 review del mismo usuario (Review.createdBy = email)
+    // =========================================================
+    @Query("""
+        SELECT COUNT(DISTINCT c.id)
+        FROM Customer c
+        JOIN Review r
+        WHERE r.customer = c
+          AND c.createdByUserId = :userId
+          AND LOWER(r.createdBy) = LOWER(:userEmail)
+    """)
+    int countDistinctCustomersWithReviewByUser(
+            @Param("userId") Long userId,
+            @Param("userEmail") String userEmail
+    );
 }

@@ -16,11 +16,22 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByEmail(String email);
 
-    // ✅ NUEVO: evita duplicados aunque cambien mayúsculas
+    // ✅ evita duplicados aunque cambien mayúsculas
     boolean existsByEmailIgnoreCase(String email);
 
     List<User> findByFullNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
             String fullName,
             String email
     );
+
+    // =========================================================
+    // ✅ REFERRALS
+    // =========================================================
+
+    boolean existsByReferralCodeIgnoreCase(String referralCode);
+
+    Optional<User> findByReferralCodeIgnoreCase(String referralCode);
+
+    // Para “cada 5 referidos registrados…”
+    long countByReferredByEmailIgnoreCase(String referredByEmail);
 }
