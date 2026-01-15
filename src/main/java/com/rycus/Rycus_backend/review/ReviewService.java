@@ -6,11 +6,11 @@ import com.rycus.Rycus_backend.milestone.MilestoneService;
 import com.rycus.Rycus_backend.repository.ReviewRepository;
 import com.rycus.Rycus_backend.repository.UserRepository;
 import com.rycus.Rycus_backend.user.User;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Locale;
 
@@ -37,7 +37,7 @@ public class ReviewService {
         return reviewRepository.findByCustomerIdOrderByCreatedAtDesc(customerId);
     }
 
-    // Crear review
+    // Crear review (✅ permite múltiples reviews por el mismo customer)
     public Review createReview(Review review) {
 
         // ============================
@@ -59,39 +59,39 @@ public class ReviewService {
         Long customerId = review.getCustomer().getId();
 
         // ============================
-        // 1) Guardar createdBy CONSISTENTE
-        //    ✅ Guardamos el EMAIL
+        // 1) Guardar createdBy CONSISTENTE (email)
         // ============================
         review.setCreatedBy(emailNormalized);
 
         // ============================
-        // 2) Anti-trampa (doble protección)
-        //    A) check antes de guardar
-        //    B) constraint UNIQUE en DB (recomendado)
+        // 2) Anti-spam (NO anti-historial)
+        //    Permitimos múltiples reviews, pero evitamos doble-click:
+        //    Si el último review del mismo usuario para ese customer fue hace < 5s → 409
         // ============================
-        boolean alreadyExists = reviewRepository
-                .existsByCreatedByIgnoreCaseAndCustomer_Id(emailNormalized, customerId);
+        try {
+            Review last = reviewRepository
+                    .findTopByCustomer_IdAndCreatedByIgnoreCaseOrderByCreatedAtDesc(customerId, emailNormalized)
+                    .orElse(null);
 
-        if (alreadyExists) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "You already reviewed this customer"
-            );
+            if (last != null && last.getCreatedAt() != null) {
+                OffsetDateTime cutoff = OffsetDateTime.now().minusSeconds(5);
+                if (last.getCreatedAt().isAfter(cutoff)) {
+                    throw new ResponseStatusException(
+                            HttpStatus.CONFLICT,
+                            "Duplicate submission detected. Please wait a few seconds and try again."
+                    );
+                }
+            }
+        } catch (ResponseStatusException ex) {
+            throw ex;
+        } catch (Exception ignored) {
+            // Si por alguna razón falla este check, no bloqueamos la creación
         }
 
         // ============================
         // 3) Guardar review
         // ============================
-        Review saved;
-        try {
-            saved = reviewRepository.save(review);
-        } catch (DataIntegrityViolationException ex) {
-            // Si el UNIQUE constraint dispara, devolvemos 409 igual
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "You already reviewed this customer"
-            );
-        }
+        Review saved = reviewRepository.save(review);
 
         // ============================
         // 4) Link automático a My Customers
@@ -110,7 +110,6 @@ public class ReviewService {
                 milestoneService.evaluateTenCustomerMilestone(userId, emailNormalized);
             }
         } catch (Exception ex) {
-            // ✅ Nunca romper el flow por milestone
             ex.printStackTrace();
         }
 
