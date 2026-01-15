@@ -99,16 +99,19 @@ public class ReviewService {
         customerService.linkCustomerToUserById(emailNormalized, customerId);
 
         // ============================
-        // 5) Milestone real (10 customers NUEVOS creados por ti + review)
-        //    Requiere: Customer.createdByUserId
+        // 5) Milestone (NO debe romper creación de review)
         // ============================
         Long userId = userRepository.findByEmailIgnoreCase(emailNormalized)
                 .map(User::getId)
                 .orElse(null);
 
-        // Si por alguna razón no existe, no rompemos el flow
-        if (userId != null) {
-            milestoneService.evaluateTenCustomerMilestone(userId, emailNormalized);
+        try {
+            if (userId != null) {
+                milestoneService.evaluateTenCustomerMilestone(userId, emailNormalized);
+            }
+        } catch (Exception ex) {
+            // ✅ Nunca romper el flow por milestone
+            ex.printStackTrace();
         }
 
         return saved;
