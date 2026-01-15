@@ -26,21 +26,14 @@ public class DashboardController {
 
     @GetMapping("/milestone")
     public ResponseEntity<MilestoneProgressDto> getDashboardMilestone(Authentication authentication) {
-        String userEmail = (authentication != null) ? authentication.getName() : null;
-
-        if (userEmail == null || userEmail.isBlank()) {
-            return ResponseEntity.ok(
-                    new MilestoneProgressDto(
-                            "TEN_NEW_CUSTOMERS_WITH_REVIEW",
-                            0, 0, 10, 10
-                    )
-            );
-        }
+        String userEmail = authentication.getName();
 
         Optional<User> userOpt = userRepository.findByEmailIgnoreCase(userEmail);
         Long userId = userOpt.map(User::getId).orElse(null);
 
-        MilestoneProgressDto dto = milestoneService.getTenCustomerMilestoneProgress(userId, userEmail);
+        MilestoneProgressDto dto =
+                milestoneService.getTenCustomerMilestoneProgress(userId, userEmail);
+
         return ResponseEntity.ok(dto);
     }
 }
