@@ -47,19 +47,23 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     List<Customer> searchByText(@Param("text") String text);
 
     // =========================================================
-    //  🏆 MILESTONE
+    //  🏆 MILESTONE (SQL NATIVO – PRODUCCIÓN SAFE)
     //  Cuenta clientes DISTINTOS:
-    //   - creados por este userId (Customer.createdByUserId)
-    //   - que tengan al menos 1 review del mismo usuario (Review.createdBy = email)
+    //   - creados por este userId (customers.created_by_user_id)
+    //   - que tengan al menos 1 review del mismo usuario (reviews.created_by = email)
+    //
+    //  ⚠️ Usamos nativeQuery porque JPQL estaba fallando en prod
     // =========================================================
-    @Query("""
-        SELECT COUNT(DISTINCT c.id)
-        FROM Customer c
-        JOIN Review r
-        WHERE r.customer = c
-          AND c.createdByUserId = :userId
-          AND LOWER(r.createdBy) = LOWER(:userEmail)
-    """)
+    @Query(
+            value = """
+            SELECT COUNT(DISTINCT c.id)
+            FROM customers c
+            JOIN reviews r ON r.customer_id = c.id
+            WHERE c.created_by_user_id = :userId
+              AND LOWER(r.created_by) = LOWER(:userEmail)
+        """,
+            nativeQuery = true
+    )
     int countDistinctCustomersWithReviewByUser(
             @Param("userId") Long userId,
             @Param("userEmail") String userEmail
