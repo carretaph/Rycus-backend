@@ -1,43 +1,60 @@
 package com.rycus.Rycus_backend.milestone;
 
-import com.rycus.Rycus_backend.repository.CustomerRepository;
+import com.rycus.Rycus_backend.repository.ReviewRepository;
 import com.rycus.Rycus_backend.repository.UserMilestoneRepository;
+import com.rycus.Rycus_backend.repository.UserRepository;
+import com.rycus.Rycus_backend.user.User;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 @Service
 public class MilestoneService {
 
-    private final CustomerRepository customerRepository;
+    private final ReviewRepository reviewRepository;
+    private final UserRepository userRepository;
     private final UserMilestoneRepository milestoneRepository;
 
     public MilestoneService(
-            CustomerRepository customerRepository,
+            ReviewRepository reviewRepository,
+            UserRepository userRepository,
             UserMilestoneRepository milestoneRepository
     ) {
-        this.customerRepository = customerRepository;
+        this.reviewRepository = reviewRepository;
+        this.userRepository = userRepository;
         this.milestoneRepository = milestoneRepository;
     }
 
     /**
-     * Evalúa:
-     * Por cada 10 clientes NUEVOS creados por el usuario (createdByUserId)
-     * a los que les dejó al menos 1 review (Review.createdBy = userEmail),
-     * se otorga 1 reward.
-     *
-     * NOTA: awards es acumulable:
-     * 10 -> 1
-     * 20 -> 2
-     * 30 -> 3
+     * ✅ Regla FINAL:
+     * - “Crear cliente = dejar 1 review”
+     * - También cuenta si deja review a un customer ya existente (creado por otro)
+     * - Para el milestone: 1 punto por CUSTOMER DISTINTO con al menos 1 review del usuario
+     * - Promo válida solo durante los primeros 3 meses desde created_at del usuario
+     * - Awards acumulable: 10 -> 1, 20 -> 2, 30 -> 3...
      */
     public void evaluateTenCustomerMilestone(Long userId, String userEmail) {
 
-        if (userId == null) return;
         if (userEmail == null || userEmail.isBlank()) return;
 
-        int qualifiedCustomers =
-                customerRepository.countDistinctCustomersWithReviewByUser(userId, userEmail);
+        User user = resolveUser(userId, userEmail);
+        if (user == null || user.getCreatedAt() == null) return;
+
+        PromoWindow window = promoWindowFromUserCreatedAt(user.getCreatedAt());
+
+        // Si ya pasó la ventana promo, no otorgamos nuevos rewards
+        if (LocalDateTime.now(ZoneOffset.UTC).isAfter(window.endAt)) {
+            return;
+        }
+
+        int qualifiedCustomers = reviewRepository.countDistinctCustomersReviewedByUserInWindow(
+                userEmail,
+                window.startAt,
+                window.endAt
+        );
 
         if (qualifiedCustomers < 10) return;
 
@@ -61,7 +78,6 @@ public class MilestoneService {
             milestone.setLastAwardedAt(OffsetDateTime.now());
             milestoneRepository.save(milestone);
 
-            // 🎁 Aquí luego conectamos meses gratis / rewards reales
             System.out.println(
                     "🎉 Milestone achieved for user " + userEmail +
                             " (awards: " + shouldHaveAwards + ")"
@@ -70,21 +86,27 @@ public class MilestoneService {
     }
 
     // =========================================================
-    // ✅ PUNTO 2: PROGRESO (para mostrar 7/10, 8/10, etc.)
+    // ✅ PROGRESO (para mostrar 7/10, 8/10, etc.)
+    // Cuenta SOLO lo que cae dentro de la ventana promo (3 meses)
     // =========================================================
     public MilestoneProgressDto getTenCustomerMilestoneProgress(Long userId, String userEmail) {
 
-        if (userId == null || userEmail == null || userEmail.isBlank()) {
-            return new MilestoneProgressDto(
-                    MilestoneType.TEN_NEW_CUSTOMERS_WITH_REVIEW.name(),
-                    0,
-                    0,
-                    10,
-                    10
-            );
+        if (userEmail == null || userEmail.isBlank()) {
+            return MilestoneProgressDto.empty();
         }
 
-        int qualified = customerRepository.countDistinctCustomersWithReviewByUser(userId, userEmail);
+        User user = resolveUser(userId, userEmail);
+        if (user == null || user.getCreatedAt() == null) {
+            return MilestoneProgressDto.empty();
+        }
+
+        PromoWindow window = promoWindowFromUserCreatedAt(user.getCreatedAt());
+
+        int qualified = reviewRepository.countDistinctCustomersReviewedByUserInWindow(
+                userEmail,
+                window.startAt,
+                window.endAt
+        );
 
         UserMilestone milestone = milestoneRepository
                 .findByUserEmailAndMilestoneType(userEmail, MilestoneType.TEN_NEW_CUSTOMERS_WITH_REVIEW)
@@ -107,5 +129,37 @@ public class MilestoneService {
                 nextRewardAt,
                 remaining
         );
+    }
+
+    // =========================================================
+    // Helpers
+    // =========================================================
+    private User resolveUser(Long userId, String userEmail) {
+        User user = null;
+
+        if (userId != null) {
+            user = userRepository.findById(userId).orElse(null);
+        }
+        if (user == null) {
+            user = userRepository.findByEmailIgnoreCase(userEmail).orElse(null);
+        }
+        return user;
+    }
+
+    private PromoWindow promoWindowFromUserCreatedAt(Instant createdAt) {
+        // createdAt es Instant (TIMESTAMPTZ). Lo convertimos a LocalDateTime UTC
+        LocalDateTime startAt = LocalDateTime.ofInstant(createdAt, ZoneOffset.UTC);
+        LocalDateTime endAt = startAt.plusMonths(3);
+        return new PromoWindow(startAt, endAt);
+    }
+
+    private static class PromoWindow {
+        final LocalDateTime startAt;
+        final LocalDateTime endAt;
+
+        PromoWindow(LocalDateTime startAt, LocalDateTime endAt) {
+            this.startAt = startAt;
+            this.endAt = endAt;
+        }
     }
 }
