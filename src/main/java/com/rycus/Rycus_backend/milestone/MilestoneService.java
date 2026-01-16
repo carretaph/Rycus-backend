@@ -30,11 +30,10 @@ public class MilestoneService {
 
     /**
      * ✅ Regla FINAL:
-     * - “Crear cliente = dejar 1 review”
-     * - También cuenta si deja review a un customer ya existente (creado por otro)
-     * - Para el milestone: 1 punto por CUSTOMER DISTINTO con al menos 1 review del usuario
-     * - Promo válida solo durante los primeros 3 meses desde created_at del usuario
-     * - Awards acumulable: 10 -> 1, 20 -> 2, 30 -> 3...
+     * - 1 punto por CUSTOMER DISTINTO con al menos 1 review del usuario
+     * - Cuenta aunque el customer lo haya creado otra persona
+     * - Promo válida solo durante los primeros 3 meses desde users.created_at
+     * - Awards acumulable: 10->1, 20->2...
      */
     public void evaluateTenCustomerMilestone(Long userId, String userEmail) {
 
@@ -45,10 +44,8 @@ public class MilestoneService {
 
         PromoWindow window = promoWindowFromUserCreatedAt(user.getCreatedAt());
 
-        // Si ya pasó la ventana promo, no otorgamos nuevos rewards
-        if (LocalDateTime.now(ZoneOffset.UTC).isAfter(window.endAt)) {
-            return;
-        }
+        // promo expirada => no otorgar nuevos rewards
+        if (LocalDateTime.now(ZoneOffset.UTC).isAfter(window.endAt)) return;
 
         int qualifiedCustomers = reviewRepository.countDistinctCustomersReviewedByUserInWindow(
                 userEmail,
@@ -78,16 +75,13 @@ public class MilestoneService {
             milestone.setLastAwardedAt(OffsetDateTime.now());
             milestoneRepository.save(milestone);
 
-            System.out.println(
-                    "🎉 Milestone achieved for user " + userEmail +
-                            " (awards: " + shouldHaveAwards + ")"
-            );
+            System.out.println("🎉 Milestone achieved for user " + userEmail +
+                    " (awards: " + shouldHaveAwards + ")");
         }
     }
 
     // =========================================================
-    // ✅ PROGRESO (para mostrar 7/10, 8/10, etc.)
-    // Cuenta SOLO lo que cae dentro de la ventana promo (3 meses)
+    // ✅ PROGRESO (7/10, 8/10, etc.)
     // =========================================================
     public MilestoneProgressDto getTenCustomerMilestoneProgress(Long userId, String userEmail) {
 
@@ -114,11 +108,8 @@ public class MilestoneService {
 
         int timesAwarded = (milestone == null) ? 0 : milestone.getTimesAwarded();
 
-        // nextRewardAt: 10, 20, 30...
         int nextRewardAt = ((qualified / 10) + 1) * 10;
-        if (qualified > 0 && qualified % 10 == 0) {
-            nextRewardAt = qualified + 10;
-        }
+        if (qualified > 0 && qualified % 10 == 0) nextRewardAt = qualified + 10;
 
         int remaining = Math.max(0, nextRewardAt - qualified);
 
@@ -147,7 +138,6 @@ public class MilestoneService {
     }
 
     private PromoWindow promoWindowFromUserCreatedAt(Instant createdAt) {
-        // createdAt es Instant (TIMESTAMPTZ). Lo convertimos a LocalDateTime UTC
         LocalDateTime startAt = LocalDateTime.ofInstant(createdAt, ZoneOffset.UTC);
         LocalDateTime endAt = startAt.plusMonths(3);
         return new PromoWindow(startAt, endAt);
