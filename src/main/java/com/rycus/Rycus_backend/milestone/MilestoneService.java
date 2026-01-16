@@ -3,10 +3,8 @@ package com.rycus.Rycus_backend.milestone;
 import com.rycus.Rycus_backend.repository.ReviewRepository;
 import com.rycus.Rycus_backend.repository.UserMilestoneRepository;
 import com.rycus.Rycus_backend.repository.UserRepository;
-import com.rycus.Rycus_backend.user.User;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -15,7 +13,7 @@ import java.time.ZoneOffset;
 public class MilestoneService {
 
     private final ReviewRepository reviewRepository;
-    private final UserRepository userRepository;
+    private final UserRepository userRepository; // lo dejamos por si lo usas en otras cosas
     private final UserMilestoneRepository milestoneRepository;
 
     public MilestoneService(
@@ -32,17 +30,15 @@ public class MilestoneService {
      * ✅ Regla FINAL:
      * - 1 punto por CUSTOMER DISTINTO con al menos 1 review del usuario
      * - Cuenta aunque el customer lo haya creado otra persona
-     * - Promo válida solo durante los primeros 3 meses desde users.created_at
+     * - Promo válida solo durante los primeros 3 meses desde el PRIMER REVIEW del usuario
      * - Awards acumulable: 10->1, 20->2...
      */
     public void evaluateTenCustomerMilestone(Long userId, String userEmail) {
 
         if (userEmail == null || userEmail.isBlank()) return;
 
-        User user = resolveUser(userId, userEmail);
-        if (user == null || user.getCreatedAt() == null) return;
-
-        PromoWindow window = promoWindowFromUserCreatedAt(user.getCreatedAt());
+        PromoWindow window = promoWindowFromFirstReview(userEmail);
+        if (window == null) return; // sin reviews => nada que evaluar
 
         // promo expirada => no otorgar nuevos rewards
         if (LocalDateTime.now(ZoneOffset.UTC).isAfter(window.endAt)) return;
@@ -89,12 +85,18 @@ public class MilestoneService {
             return MilestoneProgressDto.empty();
         }
 
-        User user = resolveUser(userId, userEmail);
-        if (user == null || user.getCreatedAt() == null) {
-            return MilestoneProgressDto.empty();
-        }
+        PromoWindow window = promoWindowFromFirstReview(userEmail);
 
-        PromoWindow window = promoWindowFromUserCreatedAt(user.getCreatedAt());
+        // Si todavía no tiene reviews, progreso 0/10
+        if (window == null) {
+            return new MilestoneProgressDto(
+                    MilestoneType.TEN_NEW_CUSTOMERS_WITH_REVIEW.name(),
+                    0,
+                    0,
+                    10,
+                    10
+            );
+        }
 
         int qualified = reviewRepository.countDistinctCustomersReviewedByUserInWindow(
                 userEmail,
@@ -125,21 +127,17 @@ public class MilestoneService {
     // =========================================================
     // Helpers
     // =========================================================
-    private User resolveUser(Long userId, String userEmail) {
-        User user = null;
+    private PromoWindow promoWindowFromFirstReview(String userEmail) {
+        LocalDateTime firstReviewAt = reviewRepository
+                .findFirstReviewAtByUser(userEmail)
+                .orElse(null);
 
-        if (userId != null) {
-            user = userRepository.findById(userId).orElse(null);
-        }
-        if (user == null) {
-            user = userRepository.findByEmailIgnoreCase(userEmail).orElse(null);
-        }
-        return user;
-    }
+        if (firstReviewAt == null) return null;
 
-    private PromoWindow promoWindowFromUserCreatedAt(Instant createdAt) {
-        LocalDateTime startAt = LocalDateTime.ofInstant(createdAt, ZoneOffset.UTC);
+        // Normalizamos a UTC por consistencia de cálculo
+        LocalDateTime startAt = firstReviewAt;
         LocalDateTime endAt = startAt.plusMonths(3);
+
         return new PromoWindow(startAt, endAt);
     }
 

@@ -24,8 +24,6 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     // =========================================
     // (OPCIONAL) Anti-spam suave:
     // último review del mismo usuario para ese customer
-    // 👉 sirve solo para evitar doble-click inmediato
-    // 👉 NO bloquea múltiples reviews históricos
     // =========================================
     Optional<Review> findTopByCustomer_IdAndCreatedByIgnoreCaseOrderByCreatedAtDesc(
             Long customerId,
@@ -34,13 +32,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     // =========================================
     // ⭐ CLAVE DEL MILESTONE ⭐
-    // Cuenta CUÁNTOS CUSTOMERS DISTINTOS
-    // ha revieweado un usuario dentro
-    // de una ventana de tiempo (promo 3 meses)
-    //
-    // ✔ cuenta customers creados por otros
-    // ✔ cuenta customers creados por el mismo user
-    // ✔ 1 customer = 1 punto (aunque tenga varios reviews)
+    // Cuenta CUÁNTOS CUSTOMERS DISTINTOS ha revieweado el usuario
+    // dentro de una ventana (promo 3 meses)
     // =========================================
     @Query(value = """
         SELECT COUNT(DISTINCT r.customer_id)
@@ -55,7 +48,13 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
             @Param("endAt") LocalDateTime endAt
     );
 
-    // ❌ ELIMINADO A PROPÓSITO
-    // Esto era lo que causaba el 409
-    // boolean existsByCreatedByIgnoreCaseAndCustomer_Id(String createdBy, Long customerId);
+    // =========================================
+    // ⭐ NUEVO: inicio real de la promo (primer review del usuario)
+    // =========================================
+    @Query("""
+        SELECT MIN(r.createdAt)
+        FROM Review r
+        WHERE LOWER(r.createdBy) = LOWER(:email)
+    """)
+    Optional<LocalDateTime> findFirstReviewAtByUser(@Param("email") String email);
 }
