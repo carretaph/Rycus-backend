@@ -8,9 +8,20 @@ public class MilestoneProgressDto {
     private int nextRewardAt;
     private int remaining;
 
-    public MilestoneProgressDto() {}
+    // =========================
+    // Constructors
+    // =========================
 
-    public MilestoneProgressDto(String milestoneType, int qualifiedCustomers, int timesAwarded, int nextRewardAt, int remaining) {
+    public MilestoneProgressDto() {
+    }
+
+    public MilestoneProgressDto(
+            String milestoneType,
+            int qualifiedCustomers,
+            int timesAwarded,
+            int nextRewardAt,
+            int remaining
+    ) {
         this.milestoneType = milestoneType;
         this.qualifiedCustomers = qualifiedCustomers;
         this.timesAwarded = timesAwarded;
@@ -18,18 +29,65 @@ public class MilestoneProgressDto {
         this.remaining = remaining;
     }
 
-    public String getMilestoneType() { return milestoneType; }
-    public void setMilestoneType(String milestoneType) { this.milestoneType = milestoneType; }
+    // =========================
+    // Static helpers
+    // =========================
 
-    public int getQualifiedCustomers() { return qualifiedCustomers; }
-    public void setQualifiedCustomers(int qualifiedCustomers) { this.qualifiedCustomers = qualifiedCustomers; }
+    /**
+     * DTO seguro cuando el usuario no está autenticado
+     * o cuando algo falla y no queremos romper el dashboard.
+     */
+    public static MilestoneProgressDto empty() {
+        return new MilestoneProgressDto(
+                MilestoneType.TEN_NEW_CUSTOMERS_WITH_REVIEW.name(),
+                0,
+                0,
+                10,
+                10
+        );
+    }
 
-    public int getTimesAwarded() { return timesAwarded; }
-    public void setTimesAwarded(int timesAwarded) { this.timesAwarded = timesAwarded; }
+    // =========================
+    // Getters & Setters
+    // =========================
 
-    public int getNextRewardAt() { return nextRewardAt; }
-    public void setNextRewardAt(int nextRewardAt) { this.nextRewardAt = nextRewardAt; }
+    public String getMilestoneType() {
+        return milestoneType;
+    }
 
-    public int getRemaining() { return remaining; }
-    public void setRemaining(int remaining) { this.remaining = remaining; }
+    public void setMilestoneType(String milestoneType) {
+        this.milestoneType = milestoneType;
+    }
+
+    public int getQualifiedCustomers() {
+        return qualifiedCustomers;
+    }
+
+    public void setQualifiedCustomers(int qualifiedCustomers) {
+        this.qualifiedCustomers = qualifiedCustomers;
+    }
+
+    public int getTimesAwarded() {
+        return timesAwarded;
+    }
+
+    public void setTimesAwarded(int timesAwarded) {
+        this.timesAwarded = timesAwarded;
+    }
+
+    public int getNextRewardAt() {
+        return nextRewardAt;
+    }
+
+    public void setNextRewardAt(int nextRewardAt) {
+        this.nextRewardAt = nextRewardAt;
+    }
+
+    public int getRemaining() {
+        return remaining;
+    }
+
+    public void setRemaining(int remaining) {
+        this.remaining = remaining;
+    }
 }

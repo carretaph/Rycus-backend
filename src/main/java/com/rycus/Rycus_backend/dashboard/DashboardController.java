@@ -19,20 +19,37 @@ public class DashboardController {
     private final MilestoneService milestoneService;
     private final UserRepository userRepository;
 
-    public DashboardController(MilestoneService milestoneService, UserRepository userRepository) {
+    public DashboardController(
+            MilestoneService milestoneService,
+            UserRepository userRepository
+    ) {
         this.milestoneService = milestoneService;
         this.userRepository = userRepository;
     }
 
     @GetMapping("/milestone")
-    public ResponseEntity<MilestoneProgressDto> getDashboardMilestone(Authentication authentication) {
+    public ResponseEntity<MilestoneProgressDto> getDashboardMilestone(
+            Authentication authentication
+    ) {
+        // 🔐 Seguridad defensiva
+        if (authentication == null || authentication.getName() == null) {
+            return ResponseEntity.ok(
+                    MilestoneProgressDto.empty()
+            );
+        }
+
         String userEmail = authentication.getName();
 
-        Optional<User> userOpt = userRepository.findByEmailIgnoreCase(userEmail);
+        Optional<User> userOpt =
+                userRepository.findByEmailIgnoreCase(userEmail);
+
         Long userId = userOpt.map(User::getId).orElse(null);
 
         MilestoneProgressDto dto =
-                milestoneService.getTenCustomerMilestoneProgress(userId, userEmail);
+                milestoneService.getTenCustomerMilestoneProgress(
+                        userId,
+                        userEmail
+                );
 
         return ResponseEntity.ok(dto);
     }
