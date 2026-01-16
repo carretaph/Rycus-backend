@@ -13,7 +13,8 @@ import java.time.Instant;
                 @Index(name = "idx_users_planType", columnList = "plan_type"),
                 @Index(name = "idx_users_subscriptionEndsAt", columnList = "subscription_ends_at"),
                 @Index(name = "idx_users_referralCode", columnList = "referral_code"),
-                @Index(name = "idx_users_referredBy", columnList = "referred_by_email")
+                @Index(name = "idx_users_referredBy", columnList = "referred_by_email"),
+                @Index(name = "idx_users_createdAt", columnList = "created_at")
         }
 )
 public class User {
@@ -46,6 +47,19 @@ public class User {
     // ✅ Postgres: TEXT (NO @Lob => evita CLOB)
     @Column(name = "avatar_url", columnDefinition = "TEXT")
     private String avatarUrl; // base64 o url
+
+    // =========================================================
+    // ✅ ACCOUNT CREATED AT (promo 3 meses)
+    // =========================================================
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    @PrePersist
+    public void prePersist() {
+        if (this.createdAt == null) {
+            this.createdAt = Instant.now();
+        }
+    }
 
     // =========================================================
     // ✅ PAYMENTS / SUBSCRIPTIONS
@@ -129,6 +143,9 @@ public class User {
 
     public String getAvatarUrl() { return avatarUrl; }
     public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
+
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 
     public PlanType getPlanType() { return planType; }
     public void setPlanType(PlanType planType) { this.planType = planType; }
