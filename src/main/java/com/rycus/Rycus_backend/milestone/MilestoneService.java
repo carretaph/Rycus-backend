@@ -3,6 +3,7 @@ package com.rycus.Rycus_backend.milestone;
 import com.rycus.Rycus_backend.repository.ReviewRepository;
 import com.rycus.Rycus_backend.repository.UserMilestoneRepository;
 import com.rycus.Rycus_backend.repository.UserRepository;
+import com.rycus.Rycus_backend.user.User;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -13,7 +14,7 @@ import java.time.ZoneOffset;
 public class MilestoneService {
 
     private final ReviewRepository reviewRepository;
-    private final UserRepository userRepository; // lo dejamos por si lo usas en otras cosas
+    private final UserRepository userRepository;
     private final UserMilestoneRepository milestoneRepository;
 
     public MilestoneService(
@@ -32,6 +33,8 @@ public class MilestoneService {
      * - Cuenta aunque el customer lo haya creado otra persona
      * - Promo válida solo durante los primeros 3 meses desde el PRIMER REVIEW del usuario
      * - Awards acumulable: 10->1, 20->2...
+     *
+     * 🎁 Cada award adicional = +1 free month balance
      */
     public void evaluateTenCustomerMilestone(Long userId, String userEmail) {
 
@@ -61,15 +64,29 @@ public class MilestoneService {
                             UserMilestone m = new UserMilestone();
                             m.setUserEmail(userEmail);
                             m.setMilestoneType(MilestoneType.TEN_NEW_CUSTOMERS_WITH_REVIEW);
+                            m.setTimesAwarded(0);
                             return m;
                         });
 
+        int before = milestone.getTimesAwarded();
         int shouldHaveAwards = qualifiedCustomers / 10;
 
-        if (shouldHaveAwards > milestone.getTimesAwarded()) {
+        if (shouldHaveAwards > before) {
+
+            int delta = shouldHaveAwards - before;
+
             milestone.setTimesAwarded(shouldHaveAwards);
             milestone.setLastAwardedAt(OffsetDateTime.now());
             milestoneRepository.save(milestone);
+
+            // ✅ SUMAR MESES GRATIS REALES
+            User user = userRepository.findByEmailIgnoreCase(userEmail).orElse(null);
+            if (user != null && delta > 0) {
+                user.setFreeMonthsBalance(user.getFreeMonthsBalance() + delta);
+                userRepository.save(user);
+
+                System.out.println("🎁 Free month(s) added for " + userEmail + " (+" + delta + ")");
+            }
 
             System.out.println("🎉 Milestone achieved for user " + userEmail +
                     " (awards: " + shouldHaveAwards + ")");
@@ -134,7 +151,6 @@ public class MilestoneService {
 
         if (firstReviewAt == null) return null;
 
-        // Normalizamos a UTC por consistencia de cálculo
         LocalDateTime startAt = firstReviewAt;
         LocalDateTime endAt = startAt.plusMonths(3);
 
