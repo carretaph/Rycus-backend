@@ -59,35 +59,33 @@
         </dependency>
 
         <!-- ========================= -->
-        <!-- DATABASES -->
+        <!-- DATABASE -->
         <!-- ========================= -->
 
-        <!-- POSTGRESQL (Render / Producción) -->
+        <!-- POSTGRESQL (Render / Producción / Dev con Render DB) -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
 
-        <!-- H2 (desarrollo local) -->
+        <!-- H2 (SOLO para tests, NO runtime) -->
         <dependency>
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
-            <scope>runtime</scope>
+            <scope>test</scope>
         </dependency>
 
         <!-- ========================= -->
-        <!-- JWT (CLAVE PARA TU ERROR) -->
+        <!-- JWT -->
         <!-- ========================= -->
 
-        <!-- JWT API -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-api</artifactId>
             <version>0.11.5</version>
         </dependency>
 
-        <!-- JWT IMPLEMENTATION -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-impl</artifactId>
@@ -95,7 +93,6 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- JWT JACKSON (JSON) -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
             <artifactId>jjwt-jackson</artifactId>

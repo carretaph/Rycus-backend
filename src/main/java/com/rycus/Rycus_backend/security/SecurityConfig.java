@@ -31,42 +31,46 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
-                // ✅ aplica a todo
                 .securityMatcher("/**")
-
-                // ✅ sin csrf
                 .csrf(csrf -> csrf.disable())
-
-                // ✅ cors
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
-
-                // ✅ stateless
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-
-                // ✅ evita defaults
                 .formLogin(form -> form.disable())
                 .httpBasic(basic -> basic.disable())
-
-                // ✅ responde 401 si falta auth (no 403)
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(
                         (req, res, authEx) -> res.sendError(401, "Unauthorized")
                 ))
-
                 .authorizeHttpRequests(auth -> auth
+
                         // preflight
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // ✅ auth endpoints
+                        // auth
                         .requestMatchers("/auth/**").permitAll()
 
-                        // salud/error
+                        // ✅ posts feed (public)
+                        .requestMatchers(HttpMethod.GET, "/posts/feed").permitAll()
+
+                        // 🧪 TEMP: allow create/edit/delete without JWT (dev stage)
+                        .requestMatchers(HttpMethod.POST, "/posts").permitAll()
+                        .requestMatchers(HttpMethod.PUT, "/posts/*").permitAll()
+                        .requestMatchers(HttpMethod.DELETE, "/posts/*").permitAll()
+
+                        // 🧪 TEMP: likes without JWT
+                        .requestMatchers(HttpMethod.POST, "/posts/*/like").permitAll()
+                        .requestMatchers(HttpMethod.DELETE, "/posts/*/like").permitAll()
+
+                        // 🧪 TEMP: avatar upload without JWT (dev)
+                        .requestMatchers(HttpMethod.POST, "/users/avatar").permitAll()
+                        .requestMatchers(HttpMethod.PUT, "/users/avatar").permitAll()
+                        .requestMatchers(HttpMethod.PATCH, "/users/avatar").permitAll()
+
+                        // error
                         .requestMatchers("/error").permitAll()
 
-                        // 🔐 todo lo demás
+                        // 🔐 everything else
                         .anyRequest().authenticated()
                 )
-
-                // ✅ jwt filter
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
@@ -83,7 +87,7 @@ public class SecurityConfig {
                 "http://localhost:5173"
         ));
 
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 
