@@ -1,6 +1,7 @@
 package com.rycus.Rycus_backend.user;
 
 import com.rycus.Rycus_backend.security.JwtService;
+import com.rycus.Rycus_backend.user.dto.SafeUserDto;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -34,16 +35,13 @@ public class AuthController {
                 ref
         );
 
-        // (opcional) si quieres auto-login al registrar:
-        // String token = jwtService.generateToken(user.getEmail());
-
         return ResponseEntity.ok(
                 new AuthResponse("User registered successfully: " + user.getFullName())
         );
     }
 
     // ================================
-    // LOGIN (✅ devuelve token)
+    // LOGIN (✅ token + safe user DTO)
     // ================================
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
@@ -55,10 +53,14 @@ public class AuthController {
 
         String token = jwtService.generateToken(user.getEmail());
 
-        // ✅ IMPORTANTE: NO devuelvas el user completo si incluye password.
-        // Devuelve null por ahora o crea un DTO safe.
+        SafeUserDto safeUser = SafeUserDto.from(user);
+
         return ResponseEntity.ok(
-                new AuthResponse("Login successful for: " + user.getFullName(), token, null)
+                new AuthResponse(
+                        "Login successful for: " + safeUser.getFullName(),
+                        token,
+                        safeUser
+                )
         );
     }
 

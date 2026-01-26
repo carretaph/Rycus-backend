@@ -1,10 +1,12 @@
 package com.rycus.Rycus_backend.user;
 
+import com.rycus.Rycus_backend.user.dto.SafeUserDto;
+
 public class AuthResponse {
 
     private String message;
-    private String token; // ✅ nuevo (puede ser null)
-    private User user;    // opcional (puede ser null)
+    private String token;
+    private SafeUserDto user;
 
     public AuthResponse() {}
 
@@ -12,7 +14,7 @@ public class AuthResponse {
         this.message = message;
     }
 
-    public AuthResponse(String message, String token, User user) {
+    public AuthResponse(String message, String token, SafeUserDto user) {
         this.message = message;
         this.token = token;
         this.user = user;
@@ -24,6 +26,6 @@ public class AuthResponse {
     public String getToken() { return token; }
     public void setToken(String token) { this.token = token; }
 
-    public User getUser() { return user; }
-    public void setUser(User user) { this.user = user; }
+    public SafeUserDto getUser() { return user; }
+    public void setUser(SafeUserDto user) { this.user = user; }
 }
