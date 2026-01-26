@@ -2,7 +2,6 @@
 package com.rycus.Rycus_backend.user;
 
 import jakarta.persistence.*;
-
 import java.time.Instant;
 
 @Entity
@@ -46,7 +45,7 @@ public class User {
 
     // ✅ Postgres: TEXT (NO @Lob => evita CLOB)
     @Column(name = "avatar_url", columnDefinition = "TEXT")
-    private String avatarUrl; // base64 o url
+    private String avatarUrl;
 
     // =========================================================
     // ✅ ACCOUNT CREATED AT (promo 3 meses)
@@ -59,37 +58,35 @@ public class User {
         if (this.createdAt == null) {
             this.createdAt = Instant.now();
         }
+        // ✅ Airbag: nunca permitir null en planType
+        if (this.planType == null) {
+            this.planType = PlanType.FREE_TRIAL;
+        }
     }
 
     // =========================================================
     // ✅ PAYMENTS / SUBSCRIPTIONS
     // =========================================================
 
-    // FREE_TRIAL (1 mes), PAID, FREE_LIFETIME, EXPIRED
     @Enumerated(EnumType.STRING)
     @Column(name = "plan_type", length = 30, nullable = false)
     private PlanType planType = PlanType.FREE_TRIAL;
 
-    // fin del trial (por default: now + 30d en register)
     @Column(name = "trial_ends_at")
     private Instant trialEndsAt;
 
-    // hasta cuándo tiene acceso (trial o pagado o con créditos)
     @Column(name = "subscription_ends_at")
     private Instant subscriptionEndsAt;
 
-    // meses gratis acumulados (referidos/rewards)
     @Column(name = "free_months_balance", nullable = false)
     private int freeMonthsBalance = 0;
 
     // =========================================================
     // ✅ REFERRALS
     // =========================================================
-
     @Column(name = "referral_code", length = 40, unique = true)
     private String referralCode;
 
-    // quién me refirió (email) - simple y consistente con tu app
     @Column(name = "referred_by_email", length = 180)
     private String referredByEmail;
 
@@ -104,9 +101,6 @@ public class User {
 
     public User() {}
 
-    // =========================
-    // Helpers de negocio (opcionales, pero útiles)
-    // =========================
     public boolean isLifetimeFree() {
         return this.planType == PlanType.FREE_LIFETIME;
     }

@@ -2,10 +2,32 @@ package com.rycus.Rycus_backend.milestone;
 
 public class MilestoneProgressDto {
 
+    /**
+     * Tipo de milestone (enum name)
+     */
     private String milestoneType;
+
+    /**
+     * Total de customers calificados acumulados
+     * (cap implícito en el service: máx 30)
+     */
     private int qualifiedCustomers;
+
+    /**
+     * Cuántas veces ya se otorgó el reward
+     * (0..3 → meses gratis)
+     */
     private int timesAwarded;
+
+    /**
+     * Próxima meta visible:
+     * 10, 20 o 30
+     */
     private int nextRewardAt;
+
+    /**
+     * Cuántos faltan para llegar a la próxima meta
+     */
     private int remaining;
 
     // =========================
@@ -30,14 +52,31 @@ public class MilestoneProgressDto {
     }
 
     // =========================
-    // Static helpers
+    // Safe helpers
     // =========================
 
     /**
-     * DTO seguro cuando el usuario no está autenticado
-     * o cuando algo falla y no queremos romper el dashboard.
+     * Cuando el usuario NO está autenticado
+     * o aún no tenemos email disponible.
      */
-    public static MilestoneProgressDto empty() {
+    public static MilestoneProgressDto unauthenticated() {
+        return new MilestoneProgressDto(
+                MilestoneType.TEN_NEW_CUSTOMERS_WITH_REVIEW.name(),
+                0,
+                0,
+                10,
+                10
+        );
+    }
+
+    /**
+     * Fallback seguro cuando ocurre un error interno.
+     * IMPORTANTE:
+     * - No rompe el dashboard
+     * - No cambia el modelo de negocio
+     * - Evita regresiones tipo 0/10 arbitrario
+     */
+    public static MilestoneProgressDto safeFallback() {
         return new MilestoneProgressDto(
                 MilestoneType.TEN_NEW_CUSTOMERS_WITH_REVIEW.name(),
                 0,

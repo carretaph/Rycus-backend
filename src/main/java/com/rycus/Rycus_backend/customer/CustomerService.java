@@ -12,7 +12,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 @Service
 public class CustomerService {
@@ -38,27 +37,25 @@ public class CustomerService {
 
     // =========================================
     // 2) MY CUSTOMERS: lista REAL por usuario
-    //    (con fallback para no romper si algo falla)
+    // ✅ FIX: traer Customers ya cargados (NO proxies lazy)
     // =========================================
     public List<Customer> getCustomersForUser(String userEmail) {
         String email = safeTrim(userEmail);
 
-        // Si no viene email → devolvemos GLOBAL (para no romper nada)
+        // Si no viene email → devolvemos vacío (no global)
         if (email == null) {
-            return customerRepository.findAll();
+            return List.of();
         }
 
         try {
-            return userCustomerRepository
-                    .findByUserEmailIgnoreCaseOrderByLinkedAtDesc(email)
-                    .stream()
-                    .map(UserCustomer::getCustomer)
-                    .collect(Collectors.toList());
+            // ✅ Query directo por JOIN user_customers -> customers
+            return customerRepository.findCustomersLinkedToUser(email);
+
         } catch (Exception ex) {
             // 🧯 Fallback temporal: si algo va mal, no tiramos 500
             ex.printStackTrace();
-            // Por ahora devolvemos todos (modo global) para no romper la app.
-            return customerRepository.findAll();
+            // Para no romper el dashboard, devolvemos vacío (no global)
+            return List.of();
         }
     }
 
@@ -82,14 +79,12 @@ public class CustomerService {
         Customer prepared = normalize(customer);
         validateDuplicate(prepared);
 
-        // ✅ Nuevo customer creado "en global" (sin link), no sabemos el userEmail aquí.
-        // Si quieres, podrías quitar este endpoint o pasar userEmail también.
         return customerRepository.save(prepared);
     }
 
     // =========================================
     // 5) Crear o reutilizar GLOBAL + Link a usuario
-    //    ✅ Setea createdByUserId SOLO si el customer es NUEVO
+    //    ✅ Setea createdByUserId SOLO si el customer es NUEV
     // =========================================
     @Transactional
     public Customer createOrLinkCustomer(String userEmail, Customer incoming) {
@@ -118,16 +113,14 @@ public class CustomerService {
                     });
 
         } else {
-            // Caso B: sin email → usamos tus reglas de duplicado por name+phone o name+email
+            // Caso B: sin email → reglas de duplicado por name+phone o name+email
             Optional<Customer> dup = findDuplicateByYourRules(prepared);
 
             if (dup.isPresent()) {
-                // existe → merge (NO tocar createdByUserId)
                 customer = merge(dup.get(), prepared);
                 customer = customerRepository.save(customer);
 
             } else {
-                // no existe → crear NUEVO → set createdByUserId
                 prepared.setCreatedByUserId(creatorUserId); // ✅ importante
                 customer = customerRepository.save(prepared);
             }

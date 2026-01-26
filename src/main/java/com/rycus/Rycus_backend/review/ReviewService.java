@@ -36,9 +36,30 @@ public class ReviewService {
 
     // =========================================================
     // Obtener reviews de un customer (más nuevos primero)
+    // (GLOBAL) - mantiene compatibilidad si lo usas en otro lado
     // =========================================================
     public List<Review> getReviewsByCustomer(Long customerId) {
         return reviewRepository.findByCustomerIdOrderByCreatedAtDesc(customerId);
+    }
+
+    // =========================================================
+    // ✅ NUEVO: Obtener reviews de un customer para un usuario
+    // Devuelve DTOs para evitar LazyInitialization / ciclos JSON
+    // Usa JOIN FETCH customer en el repository
+    // =========================================================
+    public List<ReviewDto> getReviewsForCustomer(Long customerId, String userEmail) {
+        if (customerId == null) return List.of();
+
+        String email = safeTrim(userEmail);
+        if (email == null) return List.of();
+
+        String normalized = email.toLowerCase(Locale.ROOT);
+
+        return reviewRepository
+                .findByCustomerIdAndCreatedByFetchCustomer(customerId, normalized)
+                .stream()
+                .map(ReviewDto::new)
+                .toList();
     }
 
     // =========================================================

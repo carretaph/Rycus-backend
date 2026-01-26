@@ -5,16 +5,16 @@ import com.rycus.Rycus_backend.milestone.MilestoneService;
 import com.rycus.Rycus_backend.repository.UserRepository;
 import com.rycus.Rycus_backend.user.User;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
 import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Locale;
 import java.util.Optional;
 
 @RestController
 @RequestMapping("/dashboard")
+@CrossOrigin
 public class DashboardController {
 
     private final MilestoneService milestoneService;
@@ -28,30 +28,34 @@ public class DashboardController {
     @GetMapping("/milestone")
     public ResponseEntity<MilestoneProgressDto> getDashboardMilestone(Authentication authentication) {
 
+        // ✅ si no hay auth, devolver DTO seguro (antes: empty())
         if (authentication == null || authentication.getName() == null) {
-            return ResponseEntity.ok(MilestoneProgressDto.empty());
+            return ResponseEntity.ok(MilestoneProgressDto.unauthenticated());
         }
 
-        // 🔐 En muchos setups, getName() es el "username" (a veces email, a veces otra cosa)
+        // En muchos setups, getName() es el "username" (a veces email, a veces otra cosa)
         String raw = authentication.getName().trim();
         if (raw.isEmpty()) {
-            return ResponseEntity.ok(MilestoneProgressDto.empty());
+            return ResponseEntity.ok(MilestoneProgressDto.unauthenticated());
         }
 
         String userEmail = raw.toLowerCase(Locale.ROOT);
 
-        // Si no existe usuario por ese value, devolvemos empty (y lo vemos en whoami)
         Optional<User> userOpt = userRepository.findByEmailIgnoreCase(userEmail);
-        Long userId = userOpt.map(User::getId).orElse(null);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.ok(MilestoneProgressDto.unauthenticated());
+        }
 
-        MilestoneProgressDto dto = milestoneService.getTenCustomerMilestoneProgress(userId, userEmail);
-        return ResponseEntity.ok(dto);
-    }
+        Long userId = userOpt.get().getId();
 
-    // ✅ DEBUG: para ver exactamente qué trae Spring en authentication.getName()
-    @GetMapping("/whoami")
-    public ResponseEntity<String> whoami(Authentication authentication) {
-        if (authentication == null) return ResponseEntity.ok("auth=null");
-        return ResponseEntity.ok("authName=" + authentication.getName());
+        // ✅ devolver progreso real
+        try {
+            MilestoneProgressDto dto =
+                    milestoneService.getTenCustomerMilestoneProgress(userId, userEmail);
+            return ResponseEntity.ok(dto);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return ResponseEntity.ok(MilestoneProgressDto.safeFallback());
+        }
     }
 }

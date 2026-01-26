@@ -99,7 +99,8 @@ public class MilestoneService {
     public MilestoneProgressDto getTenCustomerMilestoneProgress(Long userId, String userEmail) {
 
         if (userEmail == null || userEmail.isBlank()) {
-            return MilestoneProgressDto.empty();
+            return MilestoneProgressDto.unauthenticated();
+
         }
 
         PromoWindow window = promoWindowFromFirstReview(userEmail);

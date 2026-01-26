@@ -46,6 +46,23 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
            """)
     List<Customer> searchByText(@Param("text") String text);
 
+    // ================================
+    //  ✅ MY CUSTOMERS (link table)
+    //  Devuelve customers linkeados a un userEmail, en orden de linkedAt
+    //  (evita proxies lazy: Customer#... - no Session)
+    // ================================
+    @Query(
+            value = """
+            SELECT c.*
+            FROM customers c
+            JOIN user_customers uc ON uc.customer_id = c.id
+            WHERE LOWER(uc.user_email) = LOWER(:userEmail)
+            ORDER BY uc.linked_at DESC
+            """,
+            nativeQuery = true
+    )
+    List<Customer> findCustomersLinkedToUser(@Param("userEmail") String userEmail);
+
     // =========================================================
     //  🏆 MILESTONE (SQL NATIVO – PRODUCCIÓN SAFE)
     //  Cuenta clientes DISTINTOS:

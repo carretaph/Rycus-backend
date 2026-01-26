@@ -26,14 +26,15 @@ public class MilestoneController {
      * GET /milestones/progress?email=...
      *
      * Siempre intenta devolver progreso.
-     * Si algo falla internamente, devuelve un progreso "seguro" (0/10)
+     * Si algo falla internamente, devuelve un progreso "seguro"
      * para que el frontend nunca muestre 500.
      */
     @GetMapping("/progress")
     public ResponseEntity<MilestoneProgressDto> progress(@RequestParam("email") String email) {
 
         if (email == null || email.trim().isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "email is required");
+            // Para el dashboard, esto es "no autenticado / sin email"
+            return ResponseEntity.ok(MilestoneProgressDto.unauthenticated());
         }
 
         String normalized = email.trim().toLowerCase(Locale.ROOT);
@@ -48,17 +49,10 @@ public class MilestoneController {
 
         } catch (Exception ex) {
             // ✅ Nunca romper el endpoint por un error en query/milestone
+            System.out.println("❌ Milestone progress failed for email=" + normalized + " userId=" + user.getId());
             ex.printStackTrace();
 
-            // Fallback seguro: 0/10
-            MilestoneProgressDto fallback = new MilestoneProgressDto(
-                    MilestoneType.TEN_NEW_CUSTOMERS_WITH_REVIEW.name(),
-                    0,
-                    0,
-                    10,
-                    10
-            );
-            return ResponseEntity.ok(fallback);
+            return ResponseEntity.ok(MilestoneProgressDto.safeFallback());
         }
     }
 }

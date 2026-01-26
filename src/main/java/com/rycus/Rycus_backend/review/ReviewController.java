@@ -9,6 +9,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping
+@CrossOrigin
 public class ReviewController {
 
     private final ReviewService reviewService;
@@ -19,13 +20,27 @@ public class ReviewController {
         this.customerService = customerService;
     }
 
+    // =========================================================
+    // ✅ GET /customers/{customerId}/reviews?userEmail=...
+    // Devuelve DTOs para evitar LazyInitialization / ciclos JSON
+    // =========================================================
     @GetMapping("/customers/{customerId}/reviews")
-    public ResponseEntity<List<Review>> getReviewsByCustomer(@PathVariable Long customerId) {
-        return ResponseEntity.ok(reviewService.getReviewsByCustomer(customerId));
+    public ResponseEntity<List<ReviewDto>> getReviewsByCustomer(
+            @PathVariable Long customerId,
+            @RequestParam(value = "userEmail", required = false) String userEmail
+    ) {
+        // Si no mandan userEmail, devolvemos vacío (dashboard siempre lo manda)
+        List<ReviewDto> dtos = reviewService.getReviewsForCustomer(customerId, userEmail);
+        return ResponseEntity.ok(dtos);
     }
 
+    // =========================================================
+    // POST /customers/{customerId}/reviews
+    // Crea review para un customer
+    // (mantengo tu lógica, pero devuelvo DTO para consistencia)
+    // =========================================================
     @PostMapping("/customers/{customerId}/reviews")
-    public ResponseEntity<Review> createReviewForCustomer(
+    public ResponseEntity<ReviewDto> createReviewForCustomer(
             @PathVariable Long customerId,
             @RequestBody Review reviewRequest
     ) {
@@ -40,7 +55,7 @@ public class ReviewController {
             reviewRequest.setCreatedBy(reviewRequest.getUserEmail());
         }
 
-        // 3) Guardar el review
+        // 3) Guardar el review (createReview normaliza createdBy a email)
         Review createdReview = reviewService.createReview(reviewRequest);
 
         // 4) ✅ Regla Rycus: si dejó review, este customer se agrega a "My Customers"
@@ -48,9 +63,13 @@ public class ReviewController {
             customerService.linkCustomerToUserById(reviewRequest.getUserEmail(), customerId);
         }
 
-        return ResponseEntity.ok(createdReview);
+        // ✅ devolver DTO (evita lazy y mantiene response estable)
+        return ResponseEntity.ok(new ReviewDto(createdReview));
     }
 
+    // =========================================================
+    // DELETE /reviews/{id}
+    // =========================================================
     @DeleteMapping("/reviews/{id}")
     public ResponseEntity<String> deleteReview(@PathVariable Long id) {
         reviewService.deleteReview(id);

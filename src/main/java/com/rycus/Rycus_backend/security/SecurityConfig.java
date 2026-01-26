@@ -65,6 +65,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/users/avatar").permitAll()
                         .requestMatchers(HttpMethod.PATCH, "/users/avatar").permitAll()
 
+                        // 🧪 TEMP: user rehydrate endpoint (dev)
+                        .requestMatchers(HttpMethod.GET, "/users/me").permitAll()
+
                         // error
                         .requestMatchers("/error").permitAll()
 

@@ -1,99 +1,60 @@
 package com.rycus.Rycus_backend.user;
 
-import com.cloudinary.Cloudinary;
-import com.cloudinary.utils.ObjectUtils;
 import com.rycus.Rycus_backend.repository.UserRepository;
-import com.rycus.Rycus_backend.user.dto.UserMiniDto;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-
-import java.util.Locale;
-import java.util.Map;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/users")
+@CrossOrigin
 public class UserAvatarController {
 
     private final UserRepository userRepository;
-    private final Cloudinary cloudinary; // puede ser null en local
+    private final CloudinaryService cloudinaryService;
 
-    public UserAvatarController(UserRepository userRepository,
-                                @Autowired(required = false) Cloudinary cloudinary) {
+    public UserAvatarController(UserRepository userRepository, CloudinaryService cloudinaryService) {
         this.userRepository = userRepository;
-        this.cloudinary = cloudinary;
+        this.cloudinaryService = cloudinaryService;
     }
 
+    // POST /users/avatar?email=...
+    // multipart/form-data: file
     @PostMapping("/avatar")
-    public ResponseEntity<?> uploadAvatar(
+    public ResponseEntity<AvatarUploadResponse> uploadAvatar(
             @RequestParam("email") String email,
-            @RequestPart("file") MultipartFile file
+            @RequestParam("file") MultipartFile file
     ) {
-        // ✅ si en local no está configurado
-        if (cloudinary == null) {
-            return ResponseEntity.status(503).body("Cloudinary is not configured in this environment.");
-        }
-
-        if (email == null || email.trim().isEmpty()) {
-            return ResponseEntity.badRequest().body("email is required");
+        String e = email == null ? "" : email.trim().toLowerCase();
+        if (e.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "email is required");
         }
         if (file == null || file.isEmpty()) {
-            return ResponseEntity.badRequest().body("file is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "file is required");
         }
 
-        String contentType = (file.getContentType() == null)
-                ? ""
-                : file.getContentType().toLowerCase(Locale.ROOT);
-        if (!contentType.startsWith("image/")) {
-            return ResponseEntity.badRequest().body("Only image files are allowed");
+        User user = userRepository.findByEmail(e)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        // Subir a Cloudinary (debe devolver URL)
+        String url = cloudinaryService.uploadImage(file, "avatars");
+
+        user.setAvatarUrl(url);
+
+        // safety por si usuarios viejos tienen null
+        if (user.getPlanType() == null) {
+            user.setPlanType(PlanType.FREE_TRIAL);
         }
 
-        String normalizedEmail = email.trim().toLowerCase(Locale.ROOT);
+        userRepository.save(user);
 
-        User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
-                .orElse(null);
+        return ResponseEntity.ok(new AvatarUploadResponse(url));
+    }
 
-        if (user == null) {
-            return ResponseEntity.status(404).body("User not found");
-        }
-
-        try {
-            String publicId = "user_" + user.getId();
-
-            @SuppressWarnings("rawtypes")
-            Map uploadResult = cloudinary.uploader().upload(
-                    file.getBytes(),
-                    ObjectUtils.asMap(
-                            "folder", "rycus/avatars",
-                            "public_id", publicId,
-                            "overwrite", true,
-                            "resource_type", "image"
-                    )
-            );
-
-            Object secureUrl = uploadResult.get("secure_url");
-            if (secureUrl == null) {
-                return ResponseEntity.status(500).body("Cloudinary upload failed: missing secure_url");
-            }
-
-            String avatarUrl = secureUrl.toString().trim();
-            user.setAvatarUrl(avatarUrl);
-            userRepository.save(user);
-
-            String fullName = (user.getFullName() != null && !user.getFullName().trim().isEmpty())
-                    ? user.getFullName().trim()
-                    : user.getEmail();
-
-            return ResponseEntity.ok(new UserMiniDto(
-                    user.getEmail(),
-                    fullName,
-                    user.getAvatarUrl()
-            ));
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(500).body("Upload failed: " + e.getMessage());
-        }
+    public static class AvatarUploadResponse {
+        public String avatarUrl;
+        public AvatarUploadResponse(String avatarUrl) { this.avatarUrl = avatarUrl; }
     }
 }

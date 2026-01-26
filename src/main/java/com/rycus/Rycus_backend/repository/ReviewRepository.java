@@ -17,6 +17,23 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     List<Review> findByCustomerIdOrderByCreatedAtDesc(Long customerId);
 
     // =========================================
+    // ✅ Reviews de un customer creados por un usuario
+    // + JOIN FETCH customer para evitar LazyInitialization
+    // =========================================
+    @Query("""
+        SELECT r
+        FROM Review r
+        JOIN FETCH r.customer c
+        WHERE c.id = :customerId
+          AND LOWER(r.createdBy) = LOWER(:email)
+        ORDER BY r.createdAt DESC
+    """)
+    List<Review> findByCustomerIdAndCreatedByFetchCustomer(
+            @Param("customerId") Long customerId,
+            @Param("email") String email
+    );
+
+    // =========================================
     // Reviews creados por un usuario (email)
     // =========================================
     List<Review> findByCreatedByIgnoreCase(String createdBy);
@@ -49,7 +66,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     );
 
     // =========================================
-    // ⭐ NUEVO: inicio real de la promo (primer review del usuario)
+    // ⭐ inicio real de la promo (primer review del usuario)
     // =========================================
     @Query("""
         SELECT MIN(r.createdAt)
