@@ -77,9 +77,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
             if (jwtService.isTokenValid(token, userDetails)) {
 
+                // ✅ FIX: principal = email (String), no UserDetails object
                 UsernamePasswordAuthenticationToken authToken =
                         new UsernamePasswordAuthenticationToken(
-                                userDetails,
+                                email, // 👈 CLAVE
                                 null,
                                 userDetails.getAuthorities()
                         );
