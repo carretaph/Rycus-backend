@@ -45,6 +45,9 @@ public class SecurityConfig {
                         // preflight
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
+                        // ✅ Stripe Webhook (Stripe NO manda JWT)
+                        .requestMatchers(HttpMethod.POST, "/billing/webhook").permitAll()
+
                         // auth
                         .requestMatchers("/auth/**").permitAll()
 
