@@ -13,11 +13,15 @@ import java.time.Instant;
                 @Index(name = "idx_users_subscriptionEndsAt", columnList = "subscription_ends_at"),
                 @Index(name = "idx_users_referralCode", columnList = "referral_code"),
                 @Index(name = "idx_users_referredBy", columnList = "referred_by_email"),
-                @Index(name = "idx_users_createdAt", columnList = "created_at")
+                @Index(name = "idx_users_createdAt", columnList = "created_at"),
+                @Index(name = "idx_users_stripeCustomerId", columnList = "stripe_customer_id")
         }
 )
 public class User {
 
+    // =========================================================
+    // ID / CORE
+    // =========================================================
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -33,7 +37,9 @@ public class User {
 
     private String role; // USER, ADMIN
 
-    // ✅ profile fields
+    // =========================================================
+    // PROFILE
+    // =========================================================
     private String phone;
 
     @Column(name = "business_name")
@@ -43,12 +49,12 @@ public class User {
     private String city;
     private String state;
 
-    // ✅ Postgres: TEXT (NO @Lob => evita CLOB)
+    // TEXT en Postgres (no CLOB)
     @Column(name = "avatar_url", columnDefinition = "TEXT")
     private String avatarUrl;
 
     // =========================================================
-    // ✅ ACCOUNT CREATED AT (promo 3 meses)
+    // CREATED AT
     // =========================================================
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -58,19 +64,21 @@ public class User {
         if (this.createdAt == null) {
             this.createdAt = Instant.now();
         }
-        // ✅ Airbag: nunca permitir null en planType
         if (this.planType == null) {
             this.planType = PlanType.FREE_TRIAL;
         }
     }
 
     // =========================================================
-    // ✅ PAYMENTS / SUBSCRIPTIONS
+    // PLAN / BILLING (CORE)
     // =========================================================
-
     @Enumerated(EnumType.STRING)
     @Column(name = "plan_type", length = 30, nullable = false)
     private PlanType planType = PlanType.FREE_TRIAL;
+
+    // Stripe status real: trialing, active, past_due, canceled, unpaid, etc
+    @Column(name = "subscription_status", length = 40)
+    private String subscriptionStatus;
 
     @Column(name = "trial_ends_at")
     private Instant trialEndsAt;
@@ -78,11 +86,16 @@ public class User {
     @Column(name = "subscription_ends_at")
     private Instant subscriptionEndsAt;
 
+    // 👉 Fuente de verdad del acceso
+    @Column(name = "access_ends_at")
+    private Instant accessEndsAt;
+
+    // Free months ganados por milestones / referrals
     @Column(name = "free_months_balance", nullable = false)
     private int freeMonthsBalance = 0;
 
     // =========================================================
-    // ✅ REFERRALS
+    // REFERRALS
     // =========================================================
     @Column(name = "referral_code", length = 40, unique = true)
     private String referralCode;
@@ -91,7 +104,7 @@ public class User {
     private String referredByEmail;
 
     // =========================================================
-    // ✅ Stripe (para futuro)
+    // STRIPE
     // =========================================================
     @Column(name = "stripe_customer_id", length = 80)
     private String stripeCustomerId;
@@ -99,12 +112,35 @@ public class User {
     @Column(name = "stripe_subscription_id", length = 80)
     private String stripeSubscriptionId;
 
+    // =========================================================
+    // CONSTRUCTORS
+    // =========================================================
     public User() {}
 
+    // =========================================================
+    // BUSINESS LOGIC
+    // =========================================================
     public boolean isLifetimeFree() {
         return this.planType == PlanType.FREE_LIFETIME;
     }
 
+    /** Fuente de verdad para el backend */
+    public boolean hasActiveAccess() {
+        if (isLifetimeFree()) return true;
+
+        boolean stripeOk =
+                "trialing".equalsIgnoreCase(subscriptionStatus) ||
+                        "active".equalsIgnoreCase(subscriptionStatus);
+
+        boolean timeOk =
+                accessEndsAt != null && Instant.now().isBefore(accessEndsAt);
+
+        return stripeOk || timeOk;
+    }
+
+    // =========================================================
+    // GETTERS / SETTERS
+    // =========================================================
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -144,24 +180,42 @@ public class User {
     public PlanType getPlanType() { return planType; }
     public void setPlanType(PlanType planType) { this.planType = planType; }
 
+    public String getSubscriptionStatus() { return subscriptionStatus; }
+    public void setSubscriptionStatus(String subscriptionStatus) {
+        this.subscriptionStatus = subscriptionStatus;
+    }
+
     public Instant getTrialEndsAt() { return trialEndsAt; }
     public void setTrialEndsAt(Instant trialEndsAt) { this.trialEndsAt = trialEndsAt; }
 
     public Instant getSubscriptionEndsAt() { return subscriptionEndsAt; }
-    public void setSubscriptionEndsAt(Instant subscriptionEndsAt) { this.subscriptionEndsAt = subscriptionEndsAt; }
+    public void setSubscriptionEndsAt(Instant subscriptionEndsAt) {
+        this.subscriptionEndsAt = subscriptionEndsAt;
+    }
+
+    public Instant getAccessEndsAt() { return accessEndsAt; }
+    public void setAccessEndsAt(Instant accessEndsAt) { this.accessEndsAt = accessEndsAt; }
 
     public int getFreeMonthsBalance() { return freeMonthsBalance; }
-    public void setFreeMonthsBalance(int freeMonthsBalance) { this.freeMonthsBalance = freeMonthsBalance; }
+    public void setFreeMonthsBalance(int freeMonthsBalance) {
+        this.freeMonthsBalance = freeMonthsBalance;
+    }
 
     public String getReferralCode() { return referralCode; }
     public void setReferralCode(String referralCode) { this.referralCode = referralCode; }
 
     public String getReferredByEmail() { return referredByEmail; }
-    public void setReferredByEmail(String referredByEmail) { this.referredByEmail = referredByEmail; }
+    public void setReferredByEmail(String referredByEmail) {
+        this.referredByEmail = referredByEmail;
+    }
 
     public String getStripeCustomerId() { return stripeCustomerId; }
-    public void setStripeCustomerId(String stripeCustomerId) { this.stripeCustomerId = stripeCustomerId; }
+    public void setStripeCustomerId(String stripeCustomerId) {
+        this.stripeCustomerId = stripeCustomerId;
+    }
 
     public String getStripeSubscriptionId() { return stripeSubscriptionId; }
-    public void setStripeSubscriptionId(String stripeSubscriptionId) { this.stripeSubscriptionId = stripeSubscriptionId; }
+    public void setStripeSubscriptionId(String stripeSubscriptionId) {
+        this.stripeSubscriptionId = stripeSubscriptionId;
+    }
 }
