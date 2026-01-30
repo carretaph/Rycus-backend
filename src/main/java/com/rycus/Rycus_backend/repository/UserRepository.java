@@ -32,6 +32,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByReferralCodeIgnoreCase(String referralCode);
 
-    // Para “cada 5 referidos registrados…”
+    // Para “cada X referidos registrados…”
     long countByReferredByEmailIgnoreCase(String referredByEmail);
+
+    // =========================================================
+    // ✅ STRIPE (CLAVE PARA WEBHOOKS)
+    // =========================================================
+
+    Optional<User> findByStripeCustomerId(String stripeCustomerId);
 }
