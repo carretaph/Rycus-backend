@@ -1,188 +1,117 @@
-// src/main/java/com/rycus/Rycus_backend/review/ReviewService.java
 package com.rycus.Rycus_backend.review;
 
-import com.rycus.Rycus_backend.customer.CustomerService;
-import com.rycus.Rycus_backend.milestone.MilestoneService;
+import com.rycus.Rycus_backend.customer.Customer;
+import com.rycus.Rycus_backend.repository.CustomerRepository;
 import com.rycus.Rycus_backend.repository.ReviewRepository;
-import com.rycus.Rycus_backend.repository.UserRepository;
-import com.rycus.Rycus_backend.user.User;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
-import java.util.Locale;
 
 @Service
 public class ReviewService {
 
     private final ReviewRepository reviewRepository;
-    private final CustomerService customerService;
-    private final UserRepository userRepository;
-    private final MilestoneService milestoneService;
+    private final CustomerRepository customerRepository;
 
-    public ReviewService(
-            ReviewRepository reviewRepository,
-            CustomerService customerService,
-            UserRepository userRepository,
-            MilestoneService milestoneService
-    ) {
+    public ReviewService(ReviewRepository reviewRepository, CustomerRepository customerRepository) {
         this.reviewRepository = reviewRepository;
-        this.customerService = customerService;
-        this.userRepository = userRepository;
-        this.milestoneService = milestoneService;
+        this.customerRepository = customerRepository;
     }
 
     // =========================================================
-    // Obtener reviews de un customer (más nuevos primero)
-    // (GLOBAL) - mantiene compatibilidad si lo usas en otro lado
-    // =========================================================
-    public List<Review> getReviewsByCustomer(Long customerId) {
-        return reviewRepository.findByCustomerIdOrderByCreatedAtDesc(customerId);
-    }
-
-    // =========================================================
-    // ✅ NUEVO: Obtener reviews de un customer para un usuario
-    // Devuelve DTOs para evitar LazyInitialization / ciclos JSON
-    // Usa JOIN FETCH customer en el repository
+    // ✅ GET reviews for a customer (optionally filtered by user)
+    // Used by ReviewController.getReviewsByCustomer(...)
     // =========================================================
     public List<ReviewDto> getReviewsForCustomer(Long customerId, String userEmail) {
-        if (customerId == null) return List.of();
+        if (customerId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "customerId is required");
+        }
 
-        String email = safeTrim(userEmail);
-        if (email == null) return List.of();
+        // Si mandan userEmail, filtramos por ese usuario
+        if (userEmail != null && !userEmail.trim().isBlank()) {
+            String email = userEmail.trim().toLowerCase();
+            return reviewRepository
+                    .findByCustomerIdAndCreatedByFetchCustomer(customerId, email)
+                    .stream()
+                    .map(ReviewDto::new)
+                    .toList();
+        }
 
-        String normalized = email.toLowerCase(Locale.ROOT);
-
+        // Si no mandan userEmail, devolvemos todos los reviews del customer
         return reviewRepository
-                .findByCustomerIdAndCreatedByFetchCustomer(customerId, normalized)
+                .findByCustomerIdOrderByCreatedAtDesc(customerId)
                 .stream()
                 .map(ReviewDto::new)
                 .toList();
     }
 
     // =========================================================
-    // Crear review
-    // ✅ Permite múltiples reviews por el mismo customer
-    // ❌ NO bloquea historial
-    // ✅ Solo evita doble-submit inmediato (anti double-click)
+    // ✅ CREATE review (anti-spam + createdBy normalized)
+    // Used by ReviewController.createReviewForCustomer(...)
     // =========================================================
-    public Review createReview(Review review) {
+    public ReviewDto createReview(Long customerId, Review reviewRequest, String userEmail) {
 
-        // ============================
-        // 0) Validaciones mínimas
-        // ============================
-        if (review == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Review body is required"
-            );
+        if (customerId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "customerId is required");
         }
 
-        if (review.getCustomer() == null || review.getCustomer().getId() == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "customer.id is required"
-            );
+        if (userEmail == null || userEmail.trim().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "userEmail is required");
         }
 
-        String userEmail = safeTrim(review.getUserEmail());
-        if (userEmail == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "userEmail is required"
-            );
-        }
+        String emailNormalized = userEmail.trim().toLowerCase();
 
-        String emailNormalized = userEmail.toLowerCase(Locale.ROOT);
-        Long customerId = review.getCustomer().getId();
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
 
-        // ============================
-        // 1) createdBy consistente (EMAIL)
-        // ============================
-        review.setCreatedBy(emailNormalized);
-
-        // ============================
-        // 2) Anti-spam (NO anti-historial)
-        //    Bloquea solo si el MISMO usuario
-        //    envía otro review al MISMO customer
-        //    dentro de 5 segundos
-        // ============================
-        try {
-            Review last = reviewRepository
-                    .findTopByCustomer_IdAndCreatedByIgnoreCaseOrderByCreatedAtDesc(
-                            customerId,
-                            emailNormalized
-                    )
-                    .orElse(null);
-
-            if (last != null && last.getCreatedAt() != null) {
-                LocalDateTime cutoff = LocalDateTime.now().minusSeconds(5);
-                if (last.getCreatedAt().isAfter(cutoff)) {
-                    throw new ResponseStatusException(
-                            HttpStatus.CONFLICT,
-                            "Duplicate submission detected. Please wait a few seconds and try again."
-                    );
-                }
-            }
-        } catch (ResponseStatusException ex) {
-            throw ex;
-        } catch (Exception ignored) {
-            // Si este check falla por cualquier razón,
-            // NO bloqueamos la creación del review
-        }
-
-        // ============================
-        // 3) Guardar review
-        // ============================
-        Review saved = reviewRepository.save(review);
-
-        // ============================
-        // 4) Link automático a "My Customers"
-        // ============================
-        customerService.linkCustomerToUserById(
-                emailNormalized,
-                customerId
-        );
-
-        // ============================
-        // 5) Milestone (NO debe romper el flujo)
-        //    Cuenta CUSTOMERS únicos, no reviews
-        // ============================
-        Long userId = userRepository
-                .findByEmailIgnoreCase(emailNormalized)
-                .map(User::getId)
+        // Anti-spam: mismo usuario + mismo customer + 5 segundos
+        Review last = reviewRepository
+                .findTopByCustomer_IdAndCreatedByIgnoreCaseOrderByCreatedAtDesc(customerId, emailNormalized)
                 .orElse(null);
 
-        try {
-            if (userId != null) {
-                milestoneService.evaluateTenCustomerMilestone(
-                        userId,
-                        emailNormalized
+        if (last != null && last.getCreatedAt() != null) {
+            OffsetDateTime cutoff = OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(5);
+            if (last.getCreatedAt().isAfter(cutoff)) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Duplicate submission detected. Please wait a few seconds and try again."
                 );
             }
-        } catch (Exception ex) {
-            // Nunca romper creación de review por milestone
-            ex.printStackTrace();
         }
 
-        return saved;
+        Review r = new Review();
+        r.setCustomer(customer);
+        r.setCreatedBy(emailNormalized);
+
+        r.setRatingOverall(reviewRequest.getRatingOverall());
+        r.setRatingPayment(reviewRequest.getRatingPayment());
+        r.setRatingBehavior(reviewRequest.getRatingBehavior());
+        r.setRatingCommunication(reviewRequest.getRatingCommunication());
+        r.setComment(reviewRequest.getComment());
+
+        // createdAt lo setea @PrePersist si viene null (UTC)
+        Review saved = reviewRepository.save(r);
+
+        return new ReviewDto(saved);
     }
 
     // =========================================================
-    // Eliminar review
+    // ✅ DELETE review by id
+    // Used by ReviewController.deleteReview(...)
     // =========================================================
-    public void deleteReview(Long id) {
-        reviewRepository.deleteById(id);
-    }
+    public void deleteReview(Long reviewId) {
+        if (reviewId == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "reviewId is required");
+        }
 
-    // =========================================================
-    // Utils
-    // =========================================================
-    private String safeTrim(String value) {
-        if (value == null) return null;
-        String t = value.trim();
-        return t.isEmpty() ? null : t;
+        if (!reviewRepository.existsById(reviewId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Review not found");
+        }
+
+        reviewRepository.deleteById(reviewId);
     }
 }

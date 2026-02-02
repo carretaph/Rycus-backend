@@ -1,6 +1,6 @@
 package com.rycus.Rycus_backend.review;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 public class ReviewDto {
     private Long id;
@@ -14,7 +14,7 @@ public class ReviewDto {
     private Integer ratingCommunication;
 
     private String comment;
-    private LocalDateTime createdAt;
+    private OffsetDateTime createdAt;
 
     public ReviewDto() {}
 
@@ -46,7 +46,7 @@ public class ReviewDto {
     public Integer getRatingCommunication() { return ratingCommunication; }
 
     public String getComment() { return comment; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
+    public OffsetDateTime getCreatedAt() { return createdAt; }
 
     public void setId(Long id) { this.id = id; }
     public void setCustomerId(Long customerId) { this.customerId = customerId; }
@@ -58,5 +58,5 @@ public class ReviewDto {
     public void setRatingCommunication(Integer ratingCommunication) { this.ratingCommunication = ratingCommunication; }
 
     public void setComment(String comment) { this.comment = comment; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 }

@@ -5,7 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -51,18 +51,21 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     // ⭐ CLAVE DEL MILESTONE ⭐
     // Cuenta CUÁNTOS CUSTOMERS DISTINTOS ha revieweado el usuario
     // dentro de una ventana (promo 3 meses)
+    //
+    // ✅ IMPORTANTE:
+    // Usamos OffsetDateTime para evitar bugs de timezone con Postgres.
     // =========================================
-    @Query(value = """
-        SELECT COUNT(DISTINCT r.customer_id)
-        FROM reviews r
-        WHERE LOWER(r.created_by) = LOWER(:email)
-          AND r.created_at >= :startAt
-          AND r.created_at < :endAt
-    """, nativeQuery = true)
+    @Query("""
+        SELECT COUNT(DISTINCT r.customer.id)
+        FROM Review r
+        WHERE LOWER(r.createdBy) = LOWER(:email)
+          AND r.createdAt >= :startAt
+          AND r.createdAt < :endAt
+    """)
     int countDistinctCustomersReviewedByUserInWindow(
             @Param("email") String email,
-            @Param("startAt") LocalDateTime startAt,
-            @Param("endAt") LocalDateTime endAt
+            @Param("startAt") OffsetDateTime startAt,
+            @Param("endAt") OffsetDateTime endAt
     );
 
     // =========================================
@@ -73,5 +76,5 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
         FROM Review r
         WHERE LOWER(r.createdBy) = LOWER(:email)
     """)
-    Optional<LocalDateTime> findFirstReviewAtByUser(@Param("email") String email);
+    Optional<OffsetDateTime> findFirstReviewAtByUser(@Param("email") String email);
 }

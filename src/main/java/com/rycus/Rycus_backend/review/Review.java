@@ -4,19 +4,22 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.rycus.Rycus_backend.customer.Customer;
 import jakarta.persistence.*;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 @Entity
 @Table(
         name = "reviews",
         indexes = {
-                @Index(name = "idx_reviews_createdBy", columnList = "createdBy"),
+                // ✅ usando nombres reales de columna en DB (snake_case)
+                @Index(name = "idx_reviews_createdBy", columnList = "created_by"),
                 @Index(name = "idx_reviews_customer", columnList = "customer_id"),
-                @Index(name = "idx_reviews_createdBy_customer", columnList = "createdBy, customer_id")
+                @Index(name = "idx_reviews_createdBy_customer", columnList = "created_by, customer_id"),
+                @Index(name = "idx_reviews_createdAt", columnList = "created_at")
         },
         uniqueConstraints = {
                 // ✅ 1 review por customer por usuario
-                @UniqueConstraint(name = "uk_reviews_createdBy_customer", columnNames = {"createdBy", "customer_id"})
+                @UniqueConstraint(name = "uk_reviews_createdBy_customer", columnNames = {"created_by", "customer_id"})
         }
 )
 public class Review {
@@ -33,11 +36,13 @@ public class Review {
     @Column(length = 2000)
     private String comment;
 
-    @Column(length = 180)
+    // ✅ fuerza nombre de columna consistente con la DB
+    @Column(name = "created_by", length = 180)
     private String createdBy;
 
-    @Column(nullable = false)
-    private LocalDateTime createdAt;
+    // ✅ ahora consistente con MilestoneService/Repo (timezone-safe)
+    @Column(name = "created_at", nullable = false)
+    private OffsetDateTime createdAt;
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "customer_id", nullable = false)
@@ -53,7 +58,11 @@ public class Review {
     @PrePersist
     public void prePersist() {
         if (this.createdAt == null) {
-            this.createdAt = LocalDateTime.now();
+            // ✅ siempre UTC para evitar líos de zona horaria
+            this.createdAt = OffsetDateTime.now(ZoneOffset.UTC);
+        }
+        if (this.createdBy != null) {
+            this.createdBy = this.createdBy.trim();
         }
     }
 
@@ -78,8 +87,8 @@ public class Review {
     public String getCreatedBy() { return createdBy; }
     public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
 
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public OffsetDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 
     public Customer getCustomer() { return customer; }
     public void setCustomer(Customer customer) { this.customer = customer; }
