@@ -1,6 +1,5 @@
 package com.rycus.Rycus_backend.review;
 
-import com.rycus.Rycus_backend.customer.Customer;
 import com.rycus.Rycus_backend.customer.CustomerService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -8,7 +7,6 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping
 @CrossOrigin
 public class ReviewController {
 
@@ -21,50 +19,46 @@ public class ReviewController {
     }
 
     // =========================================================
-    // ✅ GET /customers/{customerId}/reviews?userEmail=...
-    // Devuelve DTOs para evitar LazyInitialization / ciclos JSON
+    // GET /customers/{customerId}/reviews?userEmail=...
     // =========================================================
     @GetMapping("/customers/{customerId}/reviews")
     public ResponseEntity<List<ReviewDto>> getReviewsByCustomer(
             @PathVariable Long customerId,
             @RequestParam(value = "userEmail", required = false) String userEmail
     ) {
-        // Si no mandan userEmail, devolvemos vacío (dashboard siempre lo manda)
+        // Si no mandan userEmail, devolvemos todos los reviews del customer (para admin o vista general)
         List<ReviewDto> dtos = reviewService.getReviewsForCustomer(customerId, userEmail);
         return ResponseEntity.ok(dtos);
     }
 
     // =========================================================
     // POST /customers/{customerId}/reviews
-    // Crea review para un customer
-    // (mantengo tu lógica, pero devuelvo DTO para consistencia)
+    // Body: Review (viene con ratings/comment y puede venir userEmail)
     // =========================================================
     @PostMapping("/customers/{customerId}/reviews")
     public ResponseEntity<ReviewDto> createReviewForCustomer(
             @PathVariable Long customerId,
             @RequestBody Review reviewRequest
     ) {
-        // 1) Buscar el customer global
-        Customer customer = customerService.getCustomerById(customerId);
-        reviewRequest.setCustomer(customer);
+        // ✅ Normaliza: si userEmail viene, úsalo como fuente
+        String userEmail = (reviewRequest.getUserEmail() != null && !reviewRequest.getUserEmail().isBlank())
+                ? reviewRequest.getUserEmail()
+                : null;
 
-        // 2) Si no viene createdBy pero sí userEmail, usamos userEmail como createdBy
-        if ((reviewRequest.getCreatedBy() == null || reviewRequest.getCreatedBy().isBlank())
-                && reviewRequest.getUserEmail() != null
-                && !reviewRequest.getUserEmail().isBlank()) {
-            reviewRequest.setCreatedBy(reviewRequest.getUserEmail());
+        // fallback a createdBy
+        if (userEmail == null || userEmail.isBlank()) {
+            userEmail = reviewRequest.getCreatedBy();
         }
 
-        // 3) Guardar el review (createReview normaliza createdBy a email)
-        Review createdReview = reviewService.createReview(reviewRequest);
+        // ✅ crea review (service normaliza createdBy y aplica anti-spam)
+        ReviewDto dto = reviewService.createReview(customerId, reviewRequest, userEmail);
 
-        // 4) ✅ Regla Rycus: si dejó review, este customer se agrega a "My Customers"
-        if (reviewRequest.getUserEmail() != null && !reviewRequest.getUserEmail().isBlank()) {
-            customerService.linkCustomerToUserById(reviewRequest.getUserEmail(), customerId);
+        // ✅ Regla Rycus: si dejó review, este customer se agrega a "My Customers"
+        if (userEmail != null && !userEmail.isBlank()) {
+            customerService.linkCustomerToUserById(userEmail.trim().toLowerCase(), customerId);
         }
 
-        // ✅ devolver DTO (evita lazy y mantiene response estable)
-        return ResponseEntity.ok(new ReviewDto(createdReview));
+        return ResponseEntity.ok(dto);
     }
 
     // =========================================================
