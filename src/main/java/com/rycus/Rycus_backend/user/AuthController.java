@@ -1,9 +1,13 @@
 package com.rycus.Rycus_backend.user;
 
+import com.rycus.Rycus_backend.repository.UserRepository;
 import com.rycus.Rycus_backend.security.JwtService;
 import com.rycus.Rycus_backend.user.dto.SafeUserDto;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/auth")
@@ -13,9 +17,20 @@ public class AuthController {
     private final UserService userService;
     private final JwtService jwtService;
 
-    public AuthController(UserService userService, JwtService jwtService) {
+    // ✅ NEW: login directo contra DB
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    public AuthController(
+            UserService userService,
+            JwtService jwtService,
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder
+    ) {
         this.userService = userService;
         this.jwtService = jwtService;
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     // ================================
@@ -30,7 +45,7 @@ public class AuthController {
 
         User user = userService.registerUser(
                 effectiveName,
-                request.getEmail(),
+                request.getEmail(),      // ✅ ya viene normalizado si pegaste el AuthRequest que te di
                 request.getPassword(),
                 ref
         );
@@ -46,11 +61,26 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
 
-        User user = userService.login(
-                request.getEmail(),
-                request.getPassword()
-        );
+        String email = request.getEmail();         // ✅ trim + lowercase
+        String rawPass = request.getPassword();    // ✅ trim
 
+        if (email == null || email.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "email is required");
+        }
+        if (rawPass == null || rawPass.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "password is required");
+        }
+
+        // ✅ buscar por email ignorando mayúsculas/minúsculas
+        User user = userRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
+
+        // ✅ comparar bcrypt
+        if (!passwordEncoder.matches(rawPass, user.getPassword())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+        }
+
+        // ✅ token con email normalizado
         String token = jwtService.generateToken(user.getEmail());
 
         SafeUserDto safeUser = SafeUserDto.from(user);

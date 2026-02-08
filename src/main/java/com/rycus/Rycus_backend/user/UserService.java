@@ -6,13 +6,15 @@ import com.rycus.Rycus_backend.repository.UserRepository;
 import com.rycus.Rycus_backend.review.Review;
 import com.rycus.Rycus_backend.user.dto.UserMiniDto;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -24,16 +26,21 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final ReviewRepository reviewRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    // ✅ fallback seguro (por si el encoder inyectado no reconoce el hash)
+    private final BCryptPasswordEncoder bcryptFallback = new BCryptPasswordEncoder();
 
     public UserService(UserRepository userRepository,
-                       ReviewRepository reviewRepository) {
+                       ReviewRepository reviewRepository,
+                       PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.reviewRepository = reviewRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     // =========================================
     // ✅ GET /users/by-email?email=...
-    // Mini profile para Messages/Inbox (avatar + fullName)
     // =========================================
     @Transactional(readOnly = true)
     public UserMiniDto getUserMiniByEmail(String email) {
@@ -59,8 +66,7 @@ public class UserService {
     }
 
     // =========================================
-    // REGISTRO (AuthController.register)
-    // ✅ ahora soporta ref (opcional)
+    // REGISTRO
     // =========================================
     @Transactional
     public User registerUser(String fullName, String email, String rawPassword, String ref) {
@@ -74,12 +80,10 @@ public class UserService {
 
         String emailNormalized = email.trim().toLowerCase(Locale.ROOT);
 
-        // ✅ Mejor: ignora mayúsc/minúsc
         if (userRepository.existsByEmailIgnoreCase(emailNormalized)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is already in use");
         }
 
-        // ✅ Recomendación básica (puedes ajustar)
         if (rawPassword.trim().length() < 6) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password must be at least 6 characters");
         }
@@ -88,17 +92,14 @@ public class UserService {
         user.setFullName(fullName != null ? fullName.trim() : null);
         user.setEmail(emailNormalized);
 
-        // ⚠️ OJO: hoy guardas password en texto plano.
-        // Más adelante lo mejor es usar BCrypt.
-        user.setPassword(rawPassword);
+        // ✅ BCrypt
+        user.setPassword(passwordEncoder.encode(rawPassword));
 
         if (user.getRole() == null) {
             user.setRole("USER");
         }
 
-        // ==============================
-        // ✅ PAYMENTS: trial 30 días
-        // ==============================
+        // trial 30 días
         Instant now = Instant.now();
         Instant trialEnd = now.plus(30, ChronoUnit.DAYS);
 
@@ -107,19 +108,13 @@ public class UserService {
         user.setSubscriptionEndsAt(trialEnd);
         user.setFreeMonthsBalance(0);
 
-        // ==============================
-        // ✅ REFERRAL CODE (propio)
-        // ==============================
+        // referral code
         user.setReferralCode(generateUniqueReferralCode());
 
-        // ==============================
-        // ✅ referredBy (si llega ref)
-        // ==============================
+        // referredBy (si llega ref)
         String refNormalized = safeTrim(ref);
         if (refNormalized != null) {
             Optional<User> referrerOpt = userRepository.findByReferralCodeIgnoreCase(refNormalized);
-
-            // solo setear si el ref existe y NO es el mismo email (por seguridad)
             if (referrerOpt.isPresent()) {
                 User referrer = referrerOpt.get();
                 if (referrer.getEmail() != null
@@ -133,7 +128,7 @@ public class UserService {
     }
 
     // =========================================
-    // LOGIN (AuthController.login)
+    // LOGIN (robusto)
     // =========================================
     @Transactional(readOnly = true)
     public User login(String email, String rawPassword) {
@@ -141,7 +136,7 @@ public class UserService {
         if (email == null || email.trim().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
         }
-        if (rawPassword == null) {
+        if (rawPassword == null || rawPassword.trim().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
         }
 
@@ -150,7 +145,43 @@ public class UserService {
         User user = userRepository.findByEmailIgnoreCase(emailNormalized)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password"));
 
-        if (!rawPassword.equals(user.getPassword())) {
+        String stored = user.getPassword();
+        if (stored == null || stored.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
+        }
+
+        // 🔎 LOGS TEMPORALES (para ver qué pasa de verdad)
+        System.out.println("🔐 LOGIN attempt email=" + emailNormalized);
+        System.out.println("🔐 stored hash startsWith=$2? " + stored.startsWith("$2"));
+
+        boolean ok = false;
+
+        // 1) intento con el encoder inyectado
+        try {
+            ok = passwordEncoder.matches(rawPassword, stored);
+            System.out.println("🔐 matches() with injected PasswordEncoder => " + ok);
+        } catch (Exception ex) {
+            System.out.println("🔐 injected PasswordEncoder threw: " + ex.getClass().getSimpleName() + " - " + ex.getMessage());
+        }
+
+        // 2) fallback BCrypt directo (por si el encoder es delegating o distinto)
+        if (!ok) {
+            try {
+                boolean ok2 = bcryptFallback.matches(rawPassword, stored);
+                System.out.println("🔐 matches() with BCrypt fallback => " + ok2);
+                ok = ok2;
+            } catch (Exception ex) {
+                System.out.println("🔐 BCrypt fallback threw: " + ex.getClass().getSimpleName() + " - " + ex.getMessage());
+            }
+        }
+
+        // 3) compat legacy: si alguna vez guardaste plain-text (solo por transición)
+        if (!ok && stored.equals(rawPassword)) {
+            System.out.println("⚠️ legacy plain-text password match (temporary)");
+            ok = true;
+        }
+
+        if (!ok) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
         }
 
@@ -158,7 +189,7 @@ public class UserService {
     }
 
     // =========================================
-    // ✅ Subscription status (AuthController.subscriptionStatus)
+    // Subscription status
     // =========================================
     @Transactional(readOnly = true)
     public SubscriptionStatusResponse getSubscriptionStatus(String email) {
@@ -184,17 +215,14 @@ public class UserService {
 
     private boolean isActive(User user) {
         if (user == null) return false;
-
         if (user.getPlanType() == PlanType.FREE_LIFETIME) return true;
-
         Instant end = user.getSubscriptionEndsAt();
         if (end == null) return false;
-
         return end.isAfter(Instant.now());
     }
 
     // =========================================
-    // ✅ CHANGE EMAIL (AuthController.change-email)
+    // CHANGE EMAIL
     // =========================================
     @Transactional
     public void changeEmail(String currentEmail, String newEmail, String password) {
@@ -216,7 +244,6 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "New email must be different");
         }
 
-        // validación mínima de formato
         if (!newE.contains("@") || !newE.contains(".")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid email format");
         }
@@ -224,27 +251,26 @@ public class UserService {
         User user = userRepository.findByEmailIgnoreCase(oldE)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        // confirmar password (como tú lo tienes hoy)
-        if (!password.equals(user.getPassword())) {
+        boolean ok = false;
+        try {
+            ok = passwordEncoder.matches(password, user.getPassword());
+        } catch (Exception ignored) {}
+        if (!ok) ok = bcryptFallback.matches(password, user.getPassword());
+
+        if (!ok) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid password");
         }
 
-        // evitar duplicados (case-insensitive)
         if (userRepository.existsByEmailIgnoreCase(newE)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is already in use");
         }
 
-        // ✅ Update
         user.setEmail(newE);
         userRepository.save(user);
-
-        // ⚠️ IMPORTANTE (paso 2):
-        // Si tus mensajes guardan senderEmail/recipientEmail como texto,
-        // aquí conviene actualizar esos campos también.
     }
 
     // =========================================
-    // 🔍 GET /users/search?q=...
+    // SEARCH
     // =========================================
     @Transactional(readOnly = true)
     public List<UserSummaryDto> searchUsers(String query) {
@@ -267,8 +293,7 @@ public class UserService {
     }
 
     // =========================================
-    // 👤 GET /users/{id}
-    // Perfil público + reviews
+    // PROFILE
     // =========================================
     @Transactional(readOnly = true)
     public UserProfileDto getUserProfile(Long id) {
@@ -326,7 +351,6 @@ public class UserService {
         dto.setFullName(user.getFullName());
         dto.setEmail(user.getEmail());
 
-        // ✅ public fields
         dto.setPhone(user.getPhone());
         dto.setBusinessName(user.getBusinessName());
         dto.setIndustry(user.getIndustry());
@@ -342,8 +366,7 @@ public class UserService {
     }
 
     // =========================================
-    // ✅ PUT /users/me?email=...
-    // Actualizar MI perfil persistente en DB
+    // UPDATE MY PROFILE
     // =========================================
     @Transactional
     public UserProfileDto updateMyProfile(String email, UpdateMyProfileRequest body) {
@@ -382,19 +405,16 @@ public class UserService {
     }
 
     private String generateUniqueReferralCode() {
-        // Formato: RYCUS- + 6 chars alfanum
-        // Intentamos varias veces por si choca con unique.
         for (int i = 0; i < 10; i++) {
             String code = "RYCUS-" + randomAlphaNum(6);
             boolean exists = userRepository.existsByReferralCodeIgnoreCase(code);
             if (!exists) return code;
         }
-        // fallback: agrega random más largo
         return "RYCUS-" + randomAlphaNum(10);
     }
 
     private String randomAlphaNum(int len) {
-        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // sin 0/O/1/I para evitar confusión
+        String chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
         StringBuilder sb = new StringBuilder(len);
         for (int i = 0; i < len; i++) {
             int idx = ThreadLocalRandom.current().nextInt(chars.length());

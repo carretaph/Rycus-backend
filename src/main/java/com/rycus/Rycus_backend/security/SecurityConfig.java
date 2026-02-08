@@ -1,5 +1,6 @@
 package com.rycus.Rycus_backend.security;
 
+import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -42,8 +43,20 @@ public class SecurityConfig {
                 ))
                 .authorizeHttpRequests(auth -> auth
 
+                        // ✅ MUY IMPORTANTE: deja pasar errores internos (evita Whitelabel 401)
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
+
                         // preflight
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // ✅ health / ping públicos
+                        .requestMatchers(HttpMethod.GET,
+                                "/",
+                                "/ping",
+                                "/health",
+                                "/hello",
+                                "/actuator/health"
+                        ).permitAll()
 
                         // ✅ Stripe Webhook (Stripe NO manda JWT)
                         .requestMatchers(HttpMethod.POST, "/billing/webhook").permitAll()
@@ -51,30 +64,30 @@ public class SecurityConfig {
                         // auth
                         .requestMatchers("/auth/**").permitAll()
 
-                        // ✅ posts feed (public)
+                        // feed público
                         .requestMatchers(HttpMethod.GET, "/posts/feed").permitAll()
 
-                        // 🧪 TEMP: allow create/edit/delete without JWT (dev stage)
+                        // 🧪 DEV: posts sin JWT
                         .requestMatchers(HttpMethod.POST, "/posts").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/posts/*").permitAll()
                         .requestMatchers(HttpMethod.DELETE, "/posts/*").permitAll()
 
-                        // 🧪 TEMP: likes without JWT
+                        // 🧪 DEV: likes sin JWT
                         .requestMatchers(HttpMethod.POST, "/posts/*/like").permitAll()
                         .requestMatchers(HttpMethod.DELETE, "/posts/*/like").permitAll()
 
-                        // 🧪 TEMP: avatar upload without JWT (dev)
+                        // 🧪 DEV: avatar sin JWT
                         .requestMatchers(HttpMethod.POST, "/users/avatar").permitAll()
                         .requestMatchers(HttpMethod.PUT, "/users/avatar").permitAll()
                         .requestMatchers(HttpMethod.PATCH, "/users/avatar").permitAll()
 
-                        // 🧪 TEMP: user rehydrate endpoint (dev)
+                        // 🧪 DEV: rehydrate user
                         .requestMatchers(HttpMethod.GET, "/users/me").permitAll()
 
-                        // error
+                        // error explícito
                         .requestMatchers("/error").permitAll()
 
-                        // 🔐 everything else
+                        // 🔐 TODO lo demás requiere JWT
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
@@ -93,7 +106,9 @@ public class SecurityConfig {
                 "http://localhost:5173"
         ));
 
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        config.setAllowedMethods(List.of(
+                "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
+        ));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 

@@ -36,16 +36,25 @@ public class AuthRequest {
         return null;
     }
 
-    public String getEmail() {
+    // ✅ Si algún día necesitas el email tal como llegó
+    public String getEmailRaw() {
         return email;
+    }
+
+    // ✅ NORMALIZADO: trim + lowercase
+    public String getEmail() {
+        if (email == null) return null;
+        return email.trim().toLowerCase();
     }
 
     public void setEmail(String email) {
         this.email = email;
     }
 
+    // ✅ (opcional) evita errores por espacios al copiar/pegar
     public String getPassword() {
-        return password;
+        if (password == null) return null;
+        return password.trim();
     }
 
     public void setPassword(String password) {

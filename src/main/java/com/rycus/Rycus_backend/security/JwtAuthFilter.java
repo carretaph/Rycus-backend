@@ -4,7 +4,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -21,22 +21,36 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
 
-    public JwtAuthFilter(
-            JwtService jwtService,
-            UserDetailsService userDetailsService
-    ) {
+    public JwtAuthFilter(JwtService jwtService, UserDetailsService userDetailsService) {
         this.jwtService = jwtService;
         this.userDetailsService = userDetailsService;
     }
 
-    // ✅ IMPORTANTÍSIMO: NO tocar /auth/* ni preflight
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
-        if (path == null) return false;
+        String method = request.getMethod();
 
-        return path.startsWith("/auth/")
-                || "OPTIONS".equalsIgnoreCase(request.getMethod());
+        // Preflight
+        if (HttpMethod.OPTIONS.matches(method)) return true;
+
+        // ✅ NO JWT en auth (login/register/change-email/etc)
+        if (path.startsWith("/auth/")) return true;
+
+        // ✅ públicos
+        if (path.equals("/") || path.equals("/ping") || path.equals("/health") || path.equals("/hello")) return true;
+        if (path.equals("/actuator/health")) return true;
+
+        // ✅ Stripe webhook público
+        if (path.equals("/billing/webhook")) return true;
+
+        // ✅ feed público
+        if (HttpMethod.GET.matches(method) && path.equals("/posts/feed")) return true;
+
+        // error explícito
+        if (path.equals("/error")) return true;
+
+        return false;
     }
 
     @Override
@@ -46,51 +60,58 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+        String authHeader = request.getHeader("Authorization");
 
-        // Si no hay Bearer token, seguimos sin autenticar
+        // No hay header -> seguir (SecurityConfig decidirá)
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        String token = authHeader.substring(7);
+        String token = authHeader.substring(7).trim();
 
-        String email;
-        try {
-            email = jwtService.extractEmail(token);
-        } catch (Exception ex) {
-            // Token inválido/mal formado => seguimos sin autenticar
+        // Token vacío -> seguir
+        if (token.isEmpty()) {
             filterChain.doFilter(request, response);
             return;
         }
 
-        if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails;
-            try {
-                userDetails = userDetailsService.loadUserByUsername(email);
-            } catch (Exception ex) {
-                // Usuario no encontrado => seguimos sin autenticar
+        try {
+            // ✅ CAMBIO CLAVE:
+            // Tu JwtService NO tiene extractUsername(), usa el método que SÍ tienes.
+            // Normalmente es extractEmail(token)
+            String email = jwtService.extractEmail(token);  // <-- si tu método tiene otro nombre, renómbralo aquí
+
+            // Si no pudimos sacar email -> seguir
+            if (email == null || email.isBlank()) {
                 filterChain.doFilter(request, response);
                 return;
             }
 
-            if (jwtService.isTokenValid(token, userDetails)) {
+            // Si ya hay auth en contexto, no re-auth
+            if (SecurityContextHolder.getContext().getAuthentication() == null) {
 
-                // ✅ FIX: principal = email (String), no UserDetails object
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(
-                                email, // 👈 CLAVE
-                                null,
-                                userDetails.getAuthorities()
-                        );
+                UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
-                authToken.setDetails(
-                        new WebAuthenticationDetailsSource().buildDetails(request)
-                );
+                // ✅ Usa tu método existente
+                if (jwtService.isTokenValid(token, userDetails)) {
 
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                    UsernamePasswordAuthenticationToken authToken =
+                            new UsernamePasswordAuthenticationToken(
+                                    userDetails,
+                                    null,
+                                    userDetails.getAuthorities()
+                            );
+
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
             }
+
+        } catch (Exception ex) {
+            // ✅ SUPER IMPORTANTE:
+            // NO mandes 401 aquí. Si el token está malo, solo deja que continúe.
+            // Así no rompes pantallas públicas / auth.
         }
 
         filterChain.doFilter(request, response);
