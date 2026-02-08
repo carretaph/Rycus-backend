@@ -21,11 +21,10 @@ public class AuthResponse {
     }
 
     public String getMessage() { return message; }
-    public void setMessage(String message) { this.message = message; }
-
     public String getToken() { return token; }
-    public void setToken(String token) { this.token = token; }
-
     public SafeUserDto getUser() { return user; }
+
+    public void setMessage(String message) { this.message = message; }
+    public void setToken(String token) { this.token = token; }
     public void setUser(SafeUserDto user) { this.user = user; }
 }

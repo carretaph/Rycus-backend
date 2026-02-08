@@ -17,7 +17,7 @@ public class AuthController {
     private final UserService userService;
     private final JwtService jwtService;
 
-    // ✅ NEW: login directo contra DB
+    // ✅ login directo contra DB
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -45,7 +45,7 @@ public class AuthController {
 
         User user = userService.registerUser(
                 effectiveName,
-                request.getEmail(),      // ✅ ya viene normalizado si pegaste el AuthRequest que te di
+                request.getEmail(),      // ✅ debe venir trim + lowercase en AuthRequest
                 request.getPassword(),
                 ref
         );
@@ -56,7 +56,7 @@ public class AuthController {
     }
 
     // ================================
-    // LOGIN (✅ token + safe user DTO)
+    // LOGIN (✅ token + SafeUserDto con planType)
     // ================================
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
@@ -76,6 +76,9 @@ public class AuthController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
 
         // ✅ comparar bcrypt
+        if (user.getPassword() == null || user.getPassword().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+        }
         if (!passwordEncoder.matches(rawPass, user.getPassword())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
@@ -83,6 +86,7 @@ public class AuthController {
         // ✅ token con email normalizado
         String token = jwtService.generateToken(user.getEmail());
 
+        // ✅ DEVUELVE planType y lo que el FE necesita para no mandarte a /activate
         SafeUserDto safeUser = SafeUserDto.from(user);
 
         return ResponseEntity.ok(
