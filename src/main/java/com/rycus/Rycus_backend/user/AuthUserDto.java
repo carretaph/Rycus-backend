@@ -1,6 +1,6 @@
 package com.rycus.Rycus_backend.user;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 
 public class AuthUserDto {
 
@@ -9,16 +9,15 @@ public class AuthUserDto {
     private String name;
     private String phone;
 
-    // ✅ NUEVO: fields que el frontend necesita para no mandar a "Unlock"
     private String role;
     private String planType;
     private String subscriptionStatus;
 
-    private OffsetDateTime trialEndsAt;
-    private OffsetDateTime accessEndsAt;
-    private OffsetDateTime subscriptionEndsAt;
+    private Instant trialEndsAt;
+    private Instant accessEndsAt;
+    private Instant subscriptionEndsAt;
 
-    private Integer freeMonthsBalance;
+    private Integer freeMonths;
 
     public AuthUserDto() {}
 
@@ -30,59 +29,44 @@ public class AuthUserDto {
             String role,
             String planType,
             String subscriptionStatus,
-            OffsetDateTime trialEndsAt,
-            OffsetDateTime accessEndsAt,
-            OffsetDateTime subscriptionEndsAt,
-            Integer freeMonthsBalance
+            Instant trialEndsAt,
+            Instant accessEndsAt,
+            Instant subscriptionEndsAt,
+            Integer freeMonths
     ) {
         this.id = id;
         this.email = email;
         this.name = name;
         this.phone = phone;
-
         this.role = role;
         this.planType = planType;
         this.subscriptionStatus = subscriptionStatus;
-
         this.trialEndsAt = trialEndsAt;
         this.accessEndsAt = accessEndsAt;
         this.subscriptionEndsAt = subscriptionEndsAt;
-
-        this.freeMonthsBalance = freeMonthsBalance;
+        this.freeMonths = freeMonths;
     }
 
     public static AuthUserDto from(User user) {
         if (user == null) return null;
 
-        // PlanType puede ser enum o String dependiendo de tu entity
-        String planTypeStr = null;
-        try {
-            Object pt = user.getPlanType();
-            if (pt != null) planTypeStr = pt.toString(); // enum.name() o String directo
-        } catch (Exception ignored) {}
+        String role = (user.getRole() == null || user.getRole().isBlank()) ? "USER" : user.getRole().trim();
+        String planType = (user.getPlanType() == null) ? null : user.getPlanType().name();
 
-        Integer freeMonths = null;
-        try {
-            freeMonths = user.getFreeMonthsBalance();
-        } catch (Exception ignored) {}
-
-        String role = user.getRole();
-        if (role == null || role.isBlank()) role = "USER";
+        // ✅ si tu entity lo tiene como int, esto está perfecto
+        Integer freeMonths = user.getFreeMonthsBalance();
 
         return new AuthUserDto(
                 user.getId(),
                 user.getEmail(),
                 user.getFullName(),
                 user.getPhone(),
-
-                role.trim(),
-                planTypeStr,
+                role,
+                planType,
                 user.getSubscriptionStatus(),
-
                 user.getTrialEndsAt(),
                 user.getAccessEndsAt(),
                 user.getSubscriptionEndsAt(),
-
                 freeMonths
         );
     }
@@ -96,11 +80,11 @@ public class AuthUserDto {
     public String getPlanType() { return planType; }
     public String getSubscriptionStatus() { return subscriptionStatus; }
 
-    public OffsetDateTime getTrialEndsAt() { return trialEndsAt; }
-    public OffsetDateTime getAccessEndsAt() { return accessEndsAt; }
-    public OffsetDateTime getSubscriptionEndsAt() { return subscriptionEndsAt; }
+    public Instant getTrialEndsAt() { return trialEndsAt; }
+    public Instant getAccessEndsAt() { return accessEndsAt; }
+    public Instant getSubscriptionEndsAt() { return subscriptionEndsAt; }
 
-    public Integer getFreeMonthsBalance() { return freeMonthsBalance; }
+    public Integer getFreeMonths() { return freeMonths; }
 
     public void setId(Long id) { this.id = id; }
     public void setEmail(String email) { this.email = email; }
@@ -111,9 +95,9 @@ public class AuthUserDto {
     public void setPlanType(String planType) { this.planType = planType; }
     public void setSubscriptionStatus(String subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
 
-    public void setTrialEndsAt(OffsetDateTime trialEndsAt) { this.trialEndsAt = trialEndsAt; }
-    public void setAccessEndsAt(OffsetDateTime accessEndsAt) { this.accessEndsAt = accessEndsAt; }
-    public void setSubscriptionEndsAt(OffsetDateTime subscriptionEndsAt) { this.subscriptionEndsAt = subscriptionEndsAt; }
+    public void setTrialEndsAt(Instant trialEndsAt) { this.trialEndsAt = trialEndsAt; }
+    public void setAccessEndsAt(Instant accessEndsAt) { this.accessEndsAt = accessEndsAt; }
+    public void setSubscriptionEndsAt(Instant subscriptionEndsAt) { this.subscriptionEndsAt = subscriptionEndsAt; }
 
-    public void setFreeMonthsBalance(Integer freeMonthsBalance) { this.freeMonthsBalance = freeMonthsBalance; }
+    public void setFreeMonths(Integer freeMonths) { this.freeMonths = freeMonths; }
 }

@@ -13,7 +13,6 @@ public class SafeUserDto {
     private String city;
     private String state;
 
-    // ✅ ADD
     private String planType;
     private String subscriptionStatus;
 
@@ -68,7 +67,6 @@ public class SafeUserDto {
     public String getBusinessName() { return businessName; }
     public String getCity() { return city; }
     public String getState() { return state; }
-
     public String getPlanType() { return planType; }
     public String getSubscriptionStatus() { return subscriptionStatus; }
 
@@ -80,7 +78,6 @@ public class SafeUserDto {
     public void setBusinessName(String businessName) { this.businessName = businessName; }
     public void setCity(String city) { this.city = city; }
     public void setState(String state) { this.state = state; }
-
     public void setPlanType(String planType) { this.planType = planType; }
     public void setSubscriptionStatus(String subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
 }
