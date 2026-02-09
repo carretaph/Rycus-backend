@@ -1,46 +1,46 @@
+// src/main/java/com/rycus/Rycus_backend/user/UserController.java
 package com.rycus.Rycus_backend.user;
 
-import com.rycus.Rycus_backend.user.dto.UserMiniDto;
+import com.rycus.Rycus_backend.repository.UserRepository;
+import com.rycus.Rycus_backend.user.dto.SafeUserDto;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.List;
-
 @RestController
 @RequestMapping("/users")
+@CrossOrigin
 public class UserController {
 
-    private final UserService userService;
+    private final UserRepository userRepository;
 
-    public UserController(UserService userService) {
-        this.userService = userService;
+    public UserController(UserRepository userRepository) {
+        this.userRepository = userRepository;
     }
 
-    // ✅ Para MessagesPage / Inbox: /users/by-email?email=...
-    @GetMapping("/by-email")
-    public UserMiniDto getByEmail(@RequestParam("email") String email) {
-        return userService.getUserMiniByEmail(email);
-    }
+    /**
+     * GET /users/me?email=...
+     * Devuelve SIEMPRE SafeUserDto (incluye planType y subscriptionStatus)
+     */
+    @GetMapping("/me")
+    public ResponseEntity<SafeUserDto> me(@RequestParam("email") String email) {
 
-    @GetMapping("/search")
-    public List<UserSummaryDto> searchUsers(@RequestParam("q") String q) {
-        return userService.searchUsers(q);
-    }
-
-    @GetMapping("/{id}")
-    public UserProfileDto getUserProfile(@PathVariable Long id) {
-        try {
-            return userService.getUserProfile(id);
-        } catch (ResponseStatusException e) {
-            throw e;
+        if (email == null || email.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "email is required");
         }
-    }
 
-    @PutMapping("/me")
-    public UserProfileDto updateMyProfile(
-            @RequestParam("email") String email,
-            @RequestBody UpdateMyProfileRequest request
-    ) {
-        return userService.updateMyProfile(email, request);
+        User user = userRepository.findByEmailIgnoreCase(email.trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        SafeUserDto dto = SafeUserDto.from(user);
+
+        // Safety: si por alguna razón planType viniera null, no dejes que el frontend se rompa
+        // (no debería pasar, pero evita que te mande a Unlock por un null raro)
+        if (dto != null && dto.getPlanType() == null && user.getPlanType() != null) {
+            dto.setPlanType(user.getPlanType().name());
+        }
+
+        return ResponseEntity.ok(dto);
     }
 }

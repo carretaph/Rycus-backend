@@ -3,11 +3,18 @@ package com.rycus.Rycus_backend;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
+import java.util.Map;
+
 @RestController
 public class PingController {
 
     @GetMapping("/ping")
-    public String ping() {
-        return "Rycus backend OK";
+    public Map<String, Object> ping() {
+        return Map.of(
+                "ok", true,
+                "ts", Instant.now().toString(),
+                "app", "Rycus-backend"
+        );
     }
 }
