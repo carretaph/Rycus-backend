@@ -2,6 +2,7 @@ package com.rycus.Rycus_backend.security;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
@@ -29,7 +30,7 @@ public class SecurityConfig {
         System.out.println("✅ Loaded SecurityConfig (JWT enabled)");
     }
 
-    // ✅ ESTE ES EL BEAN QUE TE FALTA EN PRODUCCIÓN
+    // ✅ AuthenticationProvider bean (evita el crash en producción)
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
@@ -47,13 +48,12 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // 👇 deja estas 3 para PROD (y agrega previews si los usas)
         config.setAllowedOriginPatterns(List.of(
                 "http://localhost:5173",
                 "http://localhost:5174",
                 "https://rycus.app",
                 "https://www.rycus.app",
-                "https://*.vercel.app"   // útil si usas previews de Vercel
+                "https://*.vercel.app"
         ));
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
@@ -74,6 +74,8 @@ public class SecurityConfig {
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(auth -> auth
+
+                        // ✅ Public endpoints
                         .requestMatchers(
                                 "/",
                                 "/ping",
@@ -81,6 +83,16 @@ public class SecurityConfig {
                                 "/public/**",
                                 "/error"
                         ).permitAll()
+
+                        // ✅ Wall / Posts (FIX 403)
+                        // Si tu wall usa GET /posts/feed (como vimos), esto lo habilita con JWT válido.
+                        .requestMatchers(HttpMethod.GET, "/posts/feed").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/posts/feed/**").authenticated()
+
+                        // (Opcional pero recomendado) si tus posts endpoints son /posts, /posts/{id}, etc.
+                        .requestMatchers("/posts/**").authenticated()
+
+                        // ✅ Everything else protected
                         .anyRequest().authenticated()
                 );
 
