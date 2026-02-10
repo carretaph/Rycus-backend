@@ -1,16 +1,16 @@
 package com.rycus.Rycus_backend.security;
 
-import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -22,9 +22,11 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+    private final AuthenticationProvider authenticationProvider;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
+    public SecurityConfig(JwtAuthFilter jwtAuthFilter, AuthenticationProvider authenticationProvider) {
         this.jwtAuthFilter = jwtAuthFilter;
+        this.authenticationProvider = authenticationProvider;
         System.out.println("✅ Loaded SecurityConfig (JWT enabled)");
     }
 
@@ -32,93 +34,59 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
-                .securityMatcher("/**")
+                .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .formLogin(form -> form.disable())
-                .httpBasic(basic -> basic.disable())
-                .exceptionHandling(ex -> ex.authenticationEntryPoint(
-                        (req, res, authEx) -> res.sendError(401, "Unauthorized")
-                ))
+                .authenticationProvider(authenticationProvider)
+                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
-
-                        // ✅ MUY IMPORTANTE: deja pasar errores internos (evita Whitelabel 401)
-                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
-
-                        // preflight
+                        // Preflight
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
-                        // ✅ health / ping públicos
-                        .requestMatchers(HttpMethod.GET,
-                                "/",
-                                "/ping",
-                                "/health",
-                                "/hello",
-                                "/actuator/health"
-                        ).permitAll()
-
-                        // ✅ Stripe Webhook (Stripe NO manda JWT)
-                        .requestMatchers(HttpMethod.POST, "/billing/webhook").permitAll()
-
-                        // auth
+                        // Public endpoints
+                        .requestMatchers("/ping").permitAll()
                         .requestMatchers("/auth/**").permitAll()
 
-                        // feed público
-                        .requestMatchers(HttpMethod.GET, "/posts/feed").permitAll()
+                        // (si tienes swagger)
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html"
+                        ).permitAll()
 
-                        // 🧪 DEV: posts sin JWT
-                        .requestMatchers(HttpMethod.POST, "/posts").permitAll()
-                        .requestMatchers(HttpMethod.PUT, "/posts/*").permitAll()
-                        .requestMatchers(HttpMethod.DELETE, "/posts/*").permitAll()
-
-                        // 🧪 DEV: likes sin JWT
-                        .requestMatchers(HttpMethod.POST, "/posts/*/like").permitAll()
-                        .requestMatchers(HttpMethod.DELETE, "/posts/*/like").permitAll()
-
-                        // 🧪 DEV: avatar sin JWT
-                        .requestMatchers(HttpMethod.POST, "/users/avatar").permitAll()
-                        .requestMatchers(HttpMethod.PUT, "/users/avatar").permitAll()
-                        .requestMatchers(HttpMethod.PATCH, "/users/avatar").permitAll()
-
-                        // 🧪 DEV: rehydrate user
-                        .requestMatchers(HttpMethod.GET, "/users/me").permitAll()
-
-                        // error explícito
-                        .requestMatchers("/error").permitAll()
-
-                        // 🔐 TODO lo demás requiere JWT
+                        // TODO: ajusta si tienes endpoints públicos adicionales
                         .anyRequest().authenticated()
-                )
-                .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+                );
 
         return http.build();
     }
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+
         CorsConfiguration config = new CorsConfiguration();
 
+        // ✅ Orígenes exactos (prod + local)
         config.setAllowedOrigins(List.of(
                 "https://rycus.app",
                 "https://www.rycus.app",
-                "https://rycus-frontend.vercel.app",
-                "http://localhost:5173"
+                "http://localhost:5173",
+                "http://localhost:5174",
+                "http://localhost:5175",
+                "http://localhost:8080"
         ));
 
-        config.setAllowedMethods(List.of(
-                "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
+        // ✅ Patrones (para previews de Vercel)
+        config.setAllowedOriginPatterns(List.of(
+                "https://*.vercel.app"
         ));
+
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
-    }
-
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
     }
 }
