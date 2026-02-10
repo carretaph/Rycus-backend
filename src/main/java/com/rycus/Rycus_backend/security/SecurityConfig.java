@@ -6,8 +6,8 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -30,7 +30,6 @@ public class SecurityConfig {
         System.out.println("✅ Loaded SecurityConfig (JWT enabled)");
     }
 
-    // ✅ AuthenticationProvider bean (evita el crash en producción)
     @Bean
     public AuthenticationProvider authenticationProvider() {
         DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
@@ -74,8 +73,7 @@ public class SecurityConfig {
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(auth -> auth
-
-                        // ✅ Public endpoints
+                        // PUBLIC
                         .requestMatchers(
                                 "/",
                                 "/ping",
@@ -84,15 +82,13 @@ public class SecurityConfig {
                                 "/error"
                         ).permitAll()
 
-                        // ✅ Wall / Posts (FIX 403)
-                        // Si tu wall usa GET /posts/feed (como vimos), esto lo habilita con JWT válido.
-                        .requestMatchers(HttpMethod.GET, "/posts/feed").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/posts/feed/**").authenticated()
+                        // ✅ Wall feed debe cargar (para que no muera el Home)
+                        .requestMatchers(HttpMethod.GET, "/posts/feed", "/posts/feed/**").permitAll()
 
-                        // (Opcional pero recomendado) si tus posts endpoints son /posts, /posts/{id}, etc.
+                        // PROTECTED (crear/editar/borrar posts, etc.)
                         .requestMatchers("/posts/**").authenticated()
 
-                        // ✅ Everything else protected
+                        // RESTO
                         .anyRequest().authenticated()
                 );
 
