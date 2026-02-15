@@ -2,6 +2,8 @@ package com.rycus.Rycus_backend.post;
 
 import com.rycus.Rycus_backend.repository.PostLikeRepository;
 import com.rycus.Rycus_backend.repository.PostRepository;
+import com.rycus.Rycus_backend.repository.UserRepository;
+import com.rycus.Rycus_backend.user.User;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -10,6 +12,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class PostService {
@@ -17,9 +20,13 @@ public class PostService {
     private final PostRepository repo;
     private final PostLikeRepository likeRepo;
 
-    public PostService(PostRepository repo, PostLikeRepository likeRepo) {
+    // ✅ NUEVO
+    private final UserRepository userRepo;
+
+    public PostService(PostRepository repo, PostLikeRepository likeRepo, UserRepository userRepo) {
         this.repo = repo;
         this.likeRepo = likeRepo;
+        this.userRepo = userRepo;
     }
 
     // =========================
@@ -42,7 +49,11 @@ public class PostService {
 
         Post saved = repo.save(new Post(text, email, name));
 
-        return toDto(saved, 0L, false);
+        long count = 0L;
+        boolean liked = false;
+
+        // ✅ CAMBIO: usa toDto con avatar
+        return toDto(saved, count, liked);
     }
 
     // =========================
@@ -58,6 +69,8 @@ public class PostService {
                 .map(p -> {
                     long count = likeRepo.countByPost(p);
                     boolean liked = StringUtils.hasText(viewer) && likeRepo.existsByPostAndUserEmail(p, viewer);
+
+                    // ✅ CAMBIO: usa toDto con avatar
                     return toDto(p, count, liked);
                 })
                 .toList();
@@ -127,7 +140,7 @@ public class PostService {
     }
 
     // =========================
-    // ✅ EDIT POST (only author)
+    // EDIT POST (only author)
     // PUT /posts/{id}?email=...
     // =========================
     @Transactional
@@ -156,18 +169,29 @@ public class PostService {
         long count = likeRepo.countByPost(saved);
         boolean likedByViewer = likeRepo.existsByPostAndUserEmail(saved, email);
 
+        // ✅ CAMBIO: usa toDto con avatar
         return toDto(saved, count, likedByViewer);
     }
 
     // =========================
-    // MAPPER
+    // ✅ MAPPER (AHORA CON AVATAR)
     // =========================
     private PostDto toDto(Post post, long likeCount, boolean likedByViewer) {
+
+        String avatarUrl = null;
+
+        String authorEmail = post.getAuthorEmail() == null ? "" : post.getAuthorEmail().trim();
+        if (StringUtils.hasText(authorEmail)) {
+            Optional<User> u = userRepo.findByEmailIgnoreCase(authorEmail);
+            avatarUrl = u.map(User::getAvatarUrl).orElse(null);
+        }
+
         return new PostDto(
                 post.getId(),
                 post.getText(),
                 post.getAuthorEmail(),
                 post.getAuthorName(),
+                avatarUrl, // ✅ AQUI VA
                 post.getCreatedAt(),
                 likeCount,
                 likedByViewer

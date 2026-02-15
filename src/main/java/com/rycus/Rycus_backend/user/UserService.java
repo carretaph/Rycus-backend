@@ -41,6 +41,7 @@ public class UserService {
 
     // =========================================
     // ✅ GET /users/by-email?email=...
+    // (Mini profile para UI: id, name, email, avatarUrl)
     // =========================================
     @Transactional(readOnly = true)
     public UserMiniDto getUserMiniByEmail(String email) {
@@ -58,9 +59,11 @@ public class UserService {
                 ? user.getFullName().trim()
                 : user.getEmail();
 
+        // ✅ IMPORTANTE: constructor de 4 params (id, fullName, email, avatarUrl)
         return new UserMiniDto(
-                user.getEmail(),
+                user.getId(),
                 fullName,
+                user.getEmail(),
                 user.getAvatarUrl()
         );
     }
@@ -150,34 +153,22 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid email or password");
         }
 
-        // 🔎 LOGS TEMPORALES (para ver qué pasa de verdad)
-        System.out.println("🔐 LOGIN attempt email=" + emailNormalized);
-        System.out.println("🔐 stored hash startsWith=$2? " + stored.startsWith("$2"));
-
         boolean ok = false;
 
         // 1) intento con el encoder inyectado
         try {
             ok = passwordEncoder.matches(rawPassword, stored);
-            System.out.println("🔐 matches() with injected PasswordEncoder => " + ok);
-        } catch (Exception ex) {
-            System.out.println("🔐 injected PasswordEncoder threw: " + ex.getClass().getSimpleName() + " - " + ex.getMessage());
-        }
+        } catch (Exception ignored) { }
 
-        // 2) fallback BCrypt directo (por si el encoder es delegating o distinto)
+        // 2) fallback BCrypt directo
         if (!ok) {
             try {
-                boolean ok2 = bcryptFallback.matches(rawPassword, stored);
-                System.out.println("🔐 matches() with BCrypt fallback => " + ok2);
-                ok = ok2;
-            } catch (Exception ex) {
-                System.out.println("🔐 BCrypt fallback threw: " + ex.getClass().getSimpleName() + " - " + ex.getMessage());
-            }
+                ok = bcryptFallback.matches(rawPassword, stored);
+            } catch (Exception ignored) { }
         }
 
-        // 3) compat legacy: si alguna vez guardaste plain-text (solo por transición)
+        // 3) legacy: plain-text (solo transición)
         if (!ok && stored.equals(rawPassword)) {
-            System.out.println("⚠️ legacy plain-text password match (temporary)");
             ok = true;
         }
 
@@ -193,6 +184,7 @@ public class UserService {
     // =========================================
     @Transactional(readOnly = true)
     public SubscriptionStatusResponse getSubscriptionStatus(String email) {
+
         String e = safeTrim(email);
         if (e == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "email is required");
@@ -216,8 +208,10 @@ public class UserService {
     private boolean isActive(User user) {
         if (user == null) return false;
         if (user.getPlanType() == PlanType.FREE_LIFETIME) return true;
+
         Instant end = user.getSubscriptionEndsAt();
         if (end == null) return false;
+
         return end.isAfter(Instant.now());
     }
 
@@ -254,7 +248,7 @@ public class UserService {
         boolean ok = false;
         try {
             ok = passwordEncoder.matches(password, user.getPassword());
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) { }
         if (!ok) ok = bcryptFallback.matches(password, user.getPassword());
 
         if (!ok) {
@@ -270,7 +264,7 @@ public class UserService {
     }
 
     // =========================================
-    // SEARCH
+    // SEARCH (simple)
     // =========================================
     @Transactional(readOnly = true)
     public List<UserSummaryDto> searchUsers(String query) {
@@ -302,6 +296,7 @@ public class UserService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         String emailLower = (user.getEmail() == null ? "" : user.getEmail().toLowerCase(Locale.ROOT));
+
         List<Review> reviews = emailLower.isBlank()
                 ? List.of()
                 : reviewRepository.findByCreatedByIgnoreCase(emailLower);

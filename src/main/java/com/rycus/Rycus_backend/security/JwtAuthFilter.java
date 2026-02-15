@@ -34,18 +34,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         // Preflight
         if (HttpMethod.OPTIONS.matches(method)) return true;
 
-        // ✅ NO JWT en auth (login/register/change-email/etc)
+        // Auth endpoints
         if (path.startsWith("/auth/")) return true;
 
-        // ✅ públicos
+        // Public basics
         if (path.equals("/") || path.equals("/ping") || path.equals("/health") || path.equals("/hello")) return true;
         if (path.equals("/actuator/health")) return true;
 
-        // ✅ Stripe webhook público
+        // Stripe webhook public
         if (path.equals("/billing/webhook")) return true;
 
-        // ✅ feed público
-        if (HttpMethod.GET.matches(method) && path.equals("/posts/feed")) return true;
+        // ✅ Feed public (incluye /posts/feed y /posts/feed/**)
+        if (HttpMethod.GET.matches(method) && (path.equals("/posts/feed") || path.startsWith("/posts/feed/"))) return true;
 
         // error explícito
         if (path.equals("/error")) return true;
@@ -62,7 +62,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         String authHeader = request.getHeader("Authorization");
 
-        // No hay header -> seguir (SecurityConfig decidirá)
+        // No hay header -> seguir
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
@@ -77,23 +77,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         }
 
         try {
-            // ✅ CAMBIO CLAVE:
-            // Tu JwtService NO tiene extractUsername(), usa el método que SÍ tienes.
-            // Normalmente es extractEmail(token)
-            String email = jwtService.extractEmail(token);  // <-- si tu método tiene otro nombre, renómbralo aquí
+            // ✅ Tu método existente
+            String email = jwtService.extractEmail(token);
 
-            // Si no pudimos sacar email -> seguir
             if (email == null || email.isBlank()) {
                 filterChain.doFilter(request, response);
                 return;
             }
 
-            // Si ya hay auth en contexto, no re-auth
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
 
                 UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
-                // ✅ Usa tu método existente
                 if (jwtService.isTokenValid(token, userDetails)) {
 
                     UsernamePasswordAuthenticationToken authToken =
@@ -109,9 +104,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             }
 
         } catch (Exception ex) {
-            // ✅ SUPER IMPORTANTE:
-            // NO mandes 401 aquí. Si el token está malo, solo deja que continúe.
-            // Así no rompes pantallas públicas / auth.
+            // ✅ NO cortar aquí
         }
 
         filterChain.doFilter(request, response);

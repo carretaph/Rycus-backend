@@ -1,7 +1,10 @@
 package com.rycus.Rycus_backend.repository;
 
 import com.rycus.Rycus_backend.user.User;
+import com.rycus.Rycus_backend.user.dto.UserMiniDto;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -25,6 +28,24 @@ public interface UserRepository extends JpaRepository<User, Long> {
     );
 
     // =========================================================
+    // ✅ USERS SEARCH (para /users/search?q=... o query=...)
+    // Devuelve lista liviana con avatarUrl
+    // =========================================================
+    @Query("""
+        select new com.rycus.Rycus_backend.user.dto.UserMiniDto(
+            u.id,
+            u.fullName,
+            u.email,
+            u.avatarUrl
+        )
+        from User u
+        where lower(coalesce(u.fullName, '')) like lower(concat('%', :q, '%'))
+           or lower(coalesce(u.email, '')) like lower(concat('%', :q, '%'))
+        order by coalesce(u.fullName, u.email) asc
+    """)
+    List<UserMiniDto> searchMini(@Param("q") String q);
+
+    // =========================================================
     // ✅ REFERRALS
     // =========================================================
 
@@ -32,7 +53,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     Optional<User> findByReferralCodeIgnoreCase(String referralCode);
 
-    // Para “cada X referidos registrados…”
     long countByReferredByEmailIgnoreCase(String referredByEmail);
 
     // =========================================================
