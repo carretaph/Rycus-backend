@@ -73,7 +73,9 @@ public class SecurityConfig {
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(auth -> auth
+                        // =========================================================
                         // PUBLIC
+                        // =========================================================
                         .requestMatchers(
                                 "/",
                                 "/ping",
@@ -82,13 +84,24 @@ public class SecurityConfig {
                                 "/error"
                         ).permitAll()
 
-                        // ✅ Wall feed debe cargar (para que no muera el Home)
+                        // =========================================================
+                        // PUBLIC FEED (para que el Home no muera)
+                        // =========================================================
                         .requestMatchers(HttpMethod.GET, "/posts/feed", "/posts/feed/**").permitAll()
 
-                        // PROTECTED (crear/editar/borrar posts, etc.)
+                        // =========================================================
+                        // API PROTECTED
+                        // =========================================================
                         .requestMatchers("/posts/**").authenticated()
+                        .requestMatchers("/customers/**").authenticated()
+                        .requestMatchers("/reviews/**").authenticated()
+                        .requestMatchers("/messages/**").authenticated()
+                        .requestMatchers("/users/**").authenticated()
+                        .requestMatchers("/connections/**").authenticated() // ✅ AQUI
 
-                        // RESTO
+                        // =========================================================
+                        // RESTO (si te olvidas algo, igual pide JWT)
+                        // =========================================================
                         .anyRequest().authenticated()
                 );
 

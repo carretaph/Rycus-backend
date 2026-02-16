@@ -2,6 +2,7 @@
 package com.rycus.Rycus_backend.user;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.Instant;
 
 @Entity
@@ -14,7 +15,8 @@ import java.time.Instant;
                 @Index(name = "idx_users_referralCode", columnList = "referral_code"),
                 @Index(name = "idx_users_referredBy", columnList = "referred_by_email"),
                 @Index(name = "idx_users_createdAt", columnList = "created_at"),
-                @Index(name = "idx_users_stripeCustomerId", columnList = "stripe_customer_id")
+                @Index(name = "idx_users_stripeCustomerId", columnList = "stripe_customer_id"),
+                @Index(name = "idx_users_offersReferralFee", columnList = "offers_referral_fee")
         }
 )
 public class User {
@@ -54,6 +56,22 @@ public class User {
     private String avatarUrl;
 
     // =========================================================
+    // REFERRAL FEE (PUBLIC)
+    // =========================================================
+    @Column(name = "offers_referral_fee", nullable = false)
+    private Boolean offersReferralFee = false;
+
+    // "FLAT" | "PERCENT"
+    @Column(name = "referral_fee_type", length = 10)
+    private String referralFeeType;
+
+    @Column(name = "referral_fee_value", precision = 10, scale = 2)
+    private BigDecimal referralFeeValue;
+
+    @Column(name = "referral_fee_notes", length = 255)
+    private String referralFeeNotes;
+
+    // =========================================================
     // CREATED AT
     // =========================================================
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -66,6 +84,9 @@ public class User {
         }
         if (this.planType == null) {
             this.planType = PlanType.FREE_TRIAL;
+        }
+        if (this.offersReferralFee == null) {
+            this.offersReferralFee = false;
         }
     }
 
@@ -173,6 +194,18 @@ public class User {
 
     public String getAvatarUrl() { return avatarUrl; }
     public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
+
+    public Boolean getOffersReferralFee() { return offersReferralFee; }
+    public void setOffersReferralFee(Boolean offersReferralFee) { this.offersReferralFee = offersReferralFee; }
+
+    public String getReferralFeeType() { return referralFeeType; }
+    public void setReferralFeeType(String referralFeeType) { this.referralFeeType = referralFeeType; }
+
+    public BigDecimal getReferralFeeValue() { return referralFeeValue; }
+    public void setReferralFeeValue(BigDecimal referralFeeValue) { this.referralFeeValue = referralFeeValue; }
+
+    public String getReferralFeeNotes() { return referralFeeNotes; }
+    public void setReferralFeeNotes(String referralFeeNotes) { this.referralFeeNotes = referralFeeNotes; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
