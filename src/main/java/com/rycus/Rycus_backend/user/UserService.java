@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -69,10 +70,20 @@ public class UserService {
     }
 
     // =========================================
-    // REGISTRO
+    // REGISTRO (con Referral Fee opcional)
     // =========================================
     @Transactional
-    public User registerUser(String fullName, String email, String rawPassword, String ref) {
+    public User registerUser(
+            String fullName,
+            String email,
+            String rawPassword,
+            String ref,
+            String phone,
+            Boolean offersReferralFee,
+            String referralFeeType,
+            BigDecimal referralFeeValue,
+            String referralFeeNotes
+    ) {
 
         if (email == null || email.trim().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email is required");
@@ -95,8 +106,12 @@ public class UserService {
         user.setFullName(fullName != null ? fullName.trim() : null);
         user.setEmail(emailNormalized);
 
+        // ✅ Phone (optional)
+        String phoneTrim = safeTrim(phone);
+        if (phoneTrim != null) user.setPhone(phoneTrim);
+
         // ✅ BCrypt
-        user.setPassword(passwordEncoder.encode(rawPassword));
+        user.setPassword(passwordEncoder.encode(rawPassword.trim()));
 
         if (user.getRole() == null) {
             user.setRole("USER");
@@ -117,15 +132,55 @@ public class UserService {
         // referredBy (si llega ref)
         String refNormalized = safeTrim(ref);
         if (refNormalized != null) {
-            Optional<User> referrerOpt = userRepository.findByReferralCodeIgnoreCase(refNormalized);
-            if (referrerOpt.isPresent()) {
-                User referrer = referrerOpt.get();
-                if (referrer.getEmail() != null
-                        && !referrer.getEmail().equalsIgnoreCase(emailNormalized)) {
+            userRepository.findByReferralCodeIgnoreCase(refNormalized).ifPresent(referrer -> {
+                if (referrer.getEmail() != null && !referrer.getEmail().equalsIgnoreCase(emailNormalized)) {
                     user.setReferredByEmail(referrer.getEmail());
                 }
-            }
+            });
         }
+
+        // =========================================================
+        // ✅ REFERRAL FEE (PUBLIC) — optional at registration
+        // =========================================================
+        boolean offers = Boolean.TRUE.equals(offersReferralFee);
+
+        if (!offers) {
+            user.setOffersReferralFee(false);
+            user.setReferralFeeType(null);
+            user.setReferralFeeValue(null);
+            user.setReferralFeeNotes(null);
+            return userRepository.save(user);
+        }
+
+        // offers == true
+        user.setOffersReferralFee(true);
+
+        String type = safeTrim(referralFeeType);
+        if (type != null) type = type.toUpperCase(Locale.ROOT);
+
+        if (type == null || (!type.equals("FLAT") && !type.equals("PERCENT"))) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "referralFeeType must be FLAT or PERCENT");
+        }
+
+        if (referralFeeValue == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "referralFeeValue is required when offersReferralFee=true");
+        }
+
+        if (referralFeeValue.signum() <= 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "referralFeeValue must be > 0");
+        }
+
+        if (type.equals("PERCENT") && referralFeeValue.compareTo(new BigDecimal("100")) > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "referralFeeValue percent must be <= 100");
+        }
+
+        user.setReferralFeeType(type);
+        user.setReferralFeeValue(referralFeeValue);
+
+        String notes = safeTrim(referralFeeNotes);
+        if (notes != null && notes.length() > 255) notes = notes.substring(0, 255);
+        user.setReferralFeeNotes(notes);
 
         return userRepository.save(user);
     }
@@ -353,6 +408,12 @@ public class UserService {
         dto.setState(user.getState());
         dto.setAvatarUrl(user.getAvatarUrl());
 
+        // ✅ Referral Fee fields (public)
+        dto.setOffersReferralFee(user.getOffersReferralFee());
+        dto.setReferralFeeType(user.getReferralFeeType());
+        dto.setReferralFeeValue(user.getReferralFeeValue());
+        dto.setReferralFeeNotes(user.getReferralFeeNotes());
+
         dto.setTotalReviews(totalReviews);
         dto.setAverageRating(averageRating);
         dto.setReviews(reviewDtos);
@@ -383,6 +444,16 @@ public class UserService {
             if (body.getCity() != null) user.setCity(body.getCity().trim());
             if (body.getState() != null) user.setState(body.getState().trim());
             if (body.getAvatarUrl() != null) user.setAvatarUrl(body.getAvatarUrl());
+
+            // ✅ Referral Fee update (optional)
+            if (body.getOffersReferralFee() != null) user.setOffersReferralFee(body.getOffersReferralFee());
+            if (body.getReferralFeeType() != null) user.setReferralFeeType(body.getReferralFeeType().trim().toUpperCase(Locale.ROOT));
+            if (body.getReferralFeeValue() != null) user.setReferralFeeValue(body.getReferralFeeValue());
+            if (body.getReferralFeeNotes() != null) {
+                String n = body.getReferralFeeNotes().trim();
+                if (n.length() > 255) n = n.substring(0, 255);
+                user.setReferralFeeNotes(n.isEmpty() ? null : n);
+            }
         }
 
         userRepository.save(user);

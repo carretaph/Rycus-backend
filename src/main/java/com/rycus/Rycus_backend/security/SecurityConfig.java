@@ -73,8 +73,9 @@ public class SecurityConfig {
                 .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(auth -> auth
+
                         // =========================================================
-                        // PUBLIC
+                        // PUBLIC (basic)
                         // =========================================================
                         .requestMatchers(
                                 "/",
@@ -82,6 +83,19 @@ public class SecurityConfig {
                                 "/auth/**",
                                 "/public/**",
                                 "/error"
+                        ).permitAll()
+
+                        // =========================================================
+                        // ACTUATOR (PUBLIC - health/info only)
+                        // =========================================================
+                        .requestMatchers(
+                                "/actuator/health",
+                                "/actuator/health/**",
+                                "/actuator/info",
+                                "/actuator/info/**"
+                                // si usas readiness/liveness probes:
+                                // "/actuator/health/liveness",
+                                // "/actuator/health/readiness"
                         ).permitAll()
 
                         // =========================================================
@@ -97,7 +111,7 @@ public class SecurityConfig {
                         .requestMatchers("/reviews/**").authenticated()
                         .requestMatchers("/messages/**").authenticated()
                         .requestMatchers("/users/**").authenticated()
-                        .requestMatchers("/connections/**").authenticated() // ✅ AQUI
+                        .requestMatchers("/connections/**").authenticated()
 
                         // =========================================================
                         // RESTO (si te olvidas algo, igual pide JWT)

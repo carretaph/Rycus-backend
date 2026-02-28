@@ -1,5 +1,6 @@
 package com.rycus.Rycus_backend.user;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public class UserProfileDto {
@@ -15,6 +16,14 @@ public class UserProfileDto {
     private String city;
     private String state;
     private String avatarUrl;
+
+    // =========================================================
+    // ✅ REFERRAL FEE (PUBLIC)
+    // =========================================================
+    private Boolean offersReferralFee;
+    private String referralFeeType;       // "FLAT" | "PERCENT"
+    private BigDecimal referralFeeValue;  // 50.00 | 10.00
+    private String referralFeeNotes;      // <=255
 
     private long totalReviews;
     private double averageRating;
@@ -48,6 +57,21 @@ public class UserProfileDto {
 
     public String getAvatarUrl() { return avatarUrl; }
     public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
+
+    // ================================
+    // ✅ Referral Fee getters/setters
+    // ================================
+    public Boolean getOffersReferralFee() { return offersReferralFee; }
+    public void setOffersReferralFee(Boolean offersReferralFee) { this.offersReferralFee = offersReferralFee; }
+
+    public String getReferralFeeType() { return referralFeeType; }
+    public void setReferralFeeType(String referralFeeType) { this.referralFeeType = referralFeeType; }
+
+    public BigDecimal getReferralFeeValue() { return referralFeeValue; }
+    public void setReferralFeeValue(BigDecimal referralFeeValue) { this.referralFeeValue = referralFeeValue; }
+
+    public String getReferralFeeNotes() { return referralFeeNotes; }
+    public void setReferralFeeNotes(String referralFeeNotes) { this.referralFeeNotes = referralFeeNotes; }
 
     public long getTotalReviews() { return totalReviews; }
     public void setTotalReviews(long totalReviews) { this.totalReviews = totalReviews; }

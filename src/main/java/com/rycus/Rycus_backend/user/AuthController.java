@@ -34,7 +34,7 @@ public class AuthController {
     }
 
     // ================================
-    // REGISTER
+    // REGISTER (con referral code + Referral Fee opcional)
     // ================================
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(
@@ -45,9 +45,16 @@ public class AuthController {
 
         User user = userService.registerUser(
                 effectiveName,
-                request.getEmail(),     // idealmente ya normalizado (trim + lower) en AuthRequest
+                request.getEmail(),
                 request.getPassword(),
-                ref
+                ref,
+
+                // ✅ nuevos campos
+                request.getPhone(),
+                request.getOffersReferralFee(),
+                request.getReferralFeeType(),
+                request.getReferralFeeValue(),
+                request.getReferralFeeNotes()
         );
 
         return ResponseEntity.ok(
@@ -61,8 +68,8 @@ public class AuthController {
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
 
-        String email = request.getEmail();      // ideal: trim + lowercase
-        String rawPass = request.getPassword(); // ideal: trim
+        String email = request.getEmail();
+        String rawPass = request.getPassword();
 
         if (email == null || email.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "email is required");
@@ -71,20 +78,15 @@ public class AuthController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "password is required");
         }
 
-        // buscar usuario (case-insensitive)
         User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
 
-        // comparar bcrypt
         if (!passwordEncoder.matches(rawPass, user.getPassword())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
         }
 
-        // token con email del usuario ya normalizado
         String token = jwtService.generateToken(user.getEmail());
 
-        // ✅ ESTO ES LO IMPORTANTE PARA PRODUCCIÓN:
-        // SafeUserDto incluye planType y subscriptionStatus
         SafeUserDto safeUser = SafeUserDto.from(user);
 
         return ResponseEntity.ok(

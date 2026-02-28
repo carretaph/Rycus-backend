@@ -68,7 +68,8 @@ public class User {
     @Column(name = "referral_fee_value", precision = 10, scale = 2)
     private BigDecimal referralFeeValue;
 
-    @Column(name = "referral_fee_notes", length = 255)
+    // ✅ 255 suele quedarse corto: mejor 500
+    @Column(name = "referral_fee_notes", length = 500)
     private String referralFeeNotes;
 
     // =========================================================
