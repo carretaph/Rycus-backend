@@ -148,6 +148,9 @@ public class MessageService {
                 String otherFullName = safe(otherUser.getFullName());
                 t.setOtherFullName(otherFullName.isBlank() ? otherEmail : otherFullName);
 
+                // ✅ avatar del otro user (si no existe, vacío)
+                t.setOtherAvatarUrl(safe(safeAvatar(otherUser)));
+
                 t.setUnreadCount(0);
 
                 // all viene DESC => el primer msg visto del thread es el último
@@ -178,12 +181,18 @@ public class MessageService {
             dto.setSenderId(m.getSender().getId());
             dto.setSenderEmail(m.getSender().getEmail());
             dto.setSenderName(m.getSender().getFullName());
+
+            // ✅ NUEVO
+            dto.setSenderAvatarUrl(safe(safeAvatar(m.getSender())));
         }
 
         if (m.getRecipient() != null) {
             dto.setRecipientId(m.getRecipient().getId());
             dto.setRecipientEmail(m.getRecipient().getEmail());
             dto.setRecipientName(m.getRecipient().getFullName());
+
+            // ✅ NUEVO
+            dto.setRecipientAvatarUrl(safe(safeAvatar(m.getRecipient())));
         }
 
         dto.setContent(m.getContent());
@@ -194,5 +203,15 @@ public class MessageService {
 
     private String safe(String s) {
         return s == null ? "" : s.trim();
+    }
+
+    // ✅ evita crasheos si tu User no tiene avatarUrl en algún build
+    private String safeAvatar(User u) {
+        try {
+            // si tu User tiene getAvatarUrl()
+            return u.getAvatarUrl();
+        } catch (Exception ignore) {
+            return "";
+        }
     }
 }

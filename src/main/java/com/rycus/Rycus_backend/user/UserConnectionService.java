@@ -28,6 +28,13 @@ public class UserConnectionService {
     }
 
     // =====================================
+    // Helper: normalizar emails
+    // =====================================
+    private String normEmail(String email) {
+        return email == null ? "" : email.trim();
+    }
+
+    // =====================================
     // Helper: convertir entidad -> DTO
     // =====================================
     private UserConnectionDto toDto(UserConnection connection) {
@@ -37,15 +44,19 @@ public class UserConnectionService {
         User requester = connection.getRequester();
         User receiver = connection.getReceiver();
 
-        dto.setRequesterId(requester.getId());
-        dto.setRequesterName(requester.getFullName());
-        dto.setRequesterEmail(requester.getEmail());
+        if (requester != null) {
+            dto.setRequesterId(requester.getId());
+            dto.setRequesterName(requester.getFullName());
+            dto.setRequesterEmail(requester.getEmail());
+        }
 
-        dto.setReceiverId(receiver.getId());
-        dto.setReceiverName(receiver.getFullName());
-        dto.setReceiverEmail(receiver.getEmail());
+        if (receiver != null) {
+            dto.setReceiverId(receiver.getId());
+            dto.setReceiverName(receiver.getFullName());
+            dto.setReceiverEmail(receiver.getEmail());
+        }
 
-        dto.setStatus(connection.getStatus().name());
+        dto.setStatus(connection.getStatus() != null ? connection.getStatus().name() : null);
         dto.setCreatedAt(connection.getCreatedAt());
         return dto;
     }
@@ -59,14 +70,18 @@ public class UserConnectionService {
             throw new IllegalArgumentException("Emails cannot be empty");
         }
 
-        if (fromEmail.equalsIgnoreCase(toEmail)) {
+        String from = normEmail(fromEmail);
+        String to = normEmail(toEmail);
+
+        if (from.equalsIgnoreCase(to)) {
             throw new IllegalArgumentException("You cannot connect with yourself");
         }
 
-        User fromUser = userRepository.findByEmail(fromEmail)
+        // ✅ IMPORTANT: ignore case + trim
+        User fromUser = userRepository.findByEmailIgnoreCase(from)
                 .orElseThrow(() -> new IllegalArgumentException("From user not found"));
 
-        User toUser = userRepository.findByEmail(toEmail)
+        User toUser = userRepository.findByEmailIgnoreCase(to)
                 .orElseThrow(() -> new IllegalArgumentException("To user not found"));
 
         // ¿ya existe conexión en alguna dirección?
@@ -76,17 +91,13 @@ public class UserConnectionService {
                 connectionRepository.findByRequesterAndReceiver(toUser, fromUser);
 
         if (forward.isPresent() || backward.isPresent()) {
-            // Si ya existe, NO lanzamos error 500; devolvemos la conexión existente.
             UserConnection existing = forward.orElseGet(backward::get);
 
-            // Si está PENDING o ACCEPTED, simplemente devolvemos el DTO
             if (existing.getStatus() == ConnectionStatus.PENDING
                     || existing.getStatus() == ConnectionStatus.ACCEPTED) {
                 return toDto(existing);
             }
 
-            // Si en el futuro hubiera otros estados, podríamos recrear,
-            // pero por ahora solo devolvemos lo que hay.
             return toDto(existing);
         }
 
@@ -110,7 +121,6 @@ public class UserConnectionService {
                     requesterName
             );
         } catch (Exception e) {
-            // Importante: NO rompemos la invitación si el mail falla.
             System.out.println("⚠️ Email failed (connection invite): " + e.getMessage());
         }
 
@@ -126,7 +136,10 @@ public class UserConnectionService {
             return Collections.emptyList();
         }
 
-        User user = userRepository.findByEmail(userEmail).orElse(null);
+        String email = normEmail(userEmail);
+
+        // ✅ IMPORTANT: ignore case + trim
+        User user = userRepository.findByEmailIgnoreCase(email).orElse(null);
         if (user == null) {
             return Collections.emptyList();
         }
@@ -149,7 +162,10 @@ public class UserConnectionService {
             return Collections.emptyList();
         }
 
-        User user = userRepository.findByEmail(userEmail).orElse(null);
+        String email = normEmail(userEmail);
+
+        // ✅ IMPORTANT: ignore case + trim
+        User user = userRepository.findByEmailIgnoreCase(email).orElse(null);
         if (user == null) {
             return Collections.emptyList();
         }
@@ -169,7 +185,10 @@ public class UserConnectionService {
             return 0L;
         }
 
-        User user = userRepository.findByEmail(userEmail).orElse(null);
+        String email = normEmail(userEmail);
+
+        // ✅ IMPORTANT: ignore case + trim
+        User user = userRepository.findByEmailIgnoreCase(email).orElse(null);
         if (user == null) {
             return 0L;
         }
@@ -189,13 +208,16 @@ public class UserConnectionService {
             throw new IllegalArgumentException("Email cannot be null");
         }
 
-        User receiver = userRepository.findByEmail(receiverEmail)
+        String email = normEmail(receiverEmail);
+
+        // ✅ IMPORTANT: ignore case + trim
+        User receiver = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         UserConnection connection = connectionRepository.findById(connectionId)
                 .orElseThrow(() -> new IllegalArgumentException("Connection not found"));
 
-        if (!connection.getReceiver().getId().equals(receiver.getId())) {
+        if (connection.getReceiver() == null || !connection.getReceiver().getId().equals(receiver.getId())) {
             throw new IllegalStateException("You are not the receiver of this connection request");
         }
 
@@ -217,13 +239,16 @@ public class UserConnectionService {
             throw new IllegalArgumentException("Email cannot be null");
         }
 
-        User receiver = userRepository.findByEmail(receiverEmail)
+        String email = normEmail(receiverEmail);
+
+        // ✅ IMPORTANT: ignore case + trim
+        User receiver = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
         UserConnection connection = connectionRepository.findById(connectionId)
                 .orElseThrow(() -> new IllegalArgumentException("Connection not found"));
 
-        if (!connection.getReceiver().getId().equals(receiver.getId())) {
+        if (connection.getReceiver() == null || !connection.getReceiver().getId().equals(receiver.getId())) {
             throw new IllegalStateException("You are not the receiver of this connection request");
         }
 

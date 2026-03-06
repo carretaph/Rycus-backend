@@ -1,32 +1,44 @@
 package com.rycus.Rycus_backend.config;
 
 import com.cloudinary.Cloudinary;
-import com.cloudinary.utils.ObjectUtils;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @Configuration
 public class CloudinaryConfig {
 
     @Bean
     public Cloudinary cloudinary() {
-        String cloudName = System.getenv("CLOUDINARY_CLOUD_NAME");
-        String apiKey = System.getenv("CLOUDINARY_API_KEY");
-        String apiSecret = System.getenv("CLOUDINARY_API_SECRET");
+        // 1) Preferir CLOUDINARY_URL si existe
+        String cloudinaryUrl = env("CLOUDINARY_URL");
+        if (!cloudinaryUrl.isBlank()) {
+            return new Cloudinary(cloudinaryUrl);
+        }
 
-        boolean missing = (cloudName == null || cloudName.isBlank()
-                || apiKey == null || apiKey.isBlank()
-                || apiSecret == null || apiSecret.isBlank());
+        // 2) Si no, usar las 3 variables
+        String cloudName = env("CLOUDINARY_CLOUD_NAME");
+        String apiKey = env("CLOUDINARY_API_KEY");
+        String apiSecret = env("CLOUDINARY_API_SECRET");
 
-        // ✅ En local puede estar missing y NO pasa nada: devolvemos null.
-        // En Render SÍ están, entonces se crea el bean bien.
-        if (missing) return null;
+        if (cloudName.isBlank() || apiKey.isBlank() || apiSecret.isBlank()) {
+            throw new IllegalStateException(
+                    "Missing Cloudinary env vars. Need CLOUDINARY_URL OR (CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET)"
+            );
+        }
 
-        return new Cloudinary(ObjectUtils.asMap(
-                "cloud_name", cloudName,
-                "api_key", apiKey,
-                "api_secret", apiSecret,
-                "secure", true
-        ));
+        Map<String, String> cfg = new HashMap<>();
+        cfg.put("cloud_name", cloudName);
+        cfg.put("api_key", apiKey);
+        cfg.put("api_secret", apiSecret);
+
+        return new Cloudinary(cfg);
+    }
+
+    private String env(String k) {
+        String v = System.getenv(k);
+        return v == null ? "" : v.trim();
     }
 }

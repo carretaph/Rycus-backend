@@ -4,15 +4,21 @@ import java.time.LocalDateTime;
 
 public class InboxThreadResponse {
 
+    private String otherEmail;
     private Long otherUserId;
     private String otherFullName;
-    private String otherEmail;
+
+    // ✅ NUEVO: avatar del otro usuario
+    private String otherAvatarUrl;
 
     private String lastMessage;
     private LocalDateTime lastMessageAt;
     private String lastFromEmail;
 
-    private int unreadCount;
+    private long unreadCount;
+
+    public String getOtherEmail() { return otherEmail; }
+    public void setOtherEmail(String otherEmail) { this.otherEmail = otherEmail; }
 
     public Long getOtherUserId() { return otherUserId; }
     public void setOtherUserId(Long otherUserId) { this.otherUserId = otherUserId; }
@@ -20,8 +26,8 @@ public class InboxThreadResponse {
     public String getOtherFullName() { return otherFullName; }
     public void setOtherFullName(String otherFullName) { this.otherFullName = otherFullName; }
 
-    public String getOtherEmail() { return otherEmail; }
-    public void setOtherEmail(String otherEmail) { this.otherEmail = otherEmail; }
+    public String getOtherAvatarUrl() { return otherAvatarUrl; }
+    public void setOtherAvatarUrl(String otherAvatarUrl) { this.otherAvatarUrl = otherAvatarUrl; }
 
     public String getLastMessage() { return lastMessage; }
     public void setLastMessage(String lastMessage) { this.lastMessage = lastMessage; }
@@ -32,6 +38,6 @@ public class InboxThreadResponse {
     public String getLastFromEmail() { return lastFromEmail; }
     public void setLastFromEmail(String lastFromEmail) { this.lastFromEmail = lastFromEmail; }
 
-    public int getUnreadCount() { return unreadCount; }
-    public void setUnreadCount(int unreadCount) { this.unreadCount = unreadCount; }
+    public long getUnreadCount() { return unreadCount; }
+    public void setUnreadCount(long unreadCount) { this.unreadCount = unreadCount; }
 }

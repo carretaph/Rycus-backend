@@ -10,9 +10,15 @@ public class MessageResponse {
     private String senderEmail;
     private String senderName;
 
+    // ✅ NUEVO
+    private String senderAvatarUrl;
+
     private Long recipientId;
     private String recipientEmail;
     private String recipientName;
+
+    // ✅ NUEVO
+    private String recipientAvatarUrl;
 
     private String content;
     private boolean read;
@@ -30,6 +36,9 @@ public class MessageResponse {
     public String getSenderName() { return senderName; }
     public void setSenderName(String senderName) { this.senderName = senderName; }
 
+    public String getSenderAvatarUrl() { return senderAvatarUrl; }
+    public void setSenderAvatarUrl(String senderAvatarUrl) { this.senderAvatarUrl = senderAvatarUrl; }
+
     public Long getRecipientId() { return recipientId; }
     public void setRecipientId(Long recipientId) { this.recipientId = recipientId; }
 
@@ -38,6 +47,9 @@ public class MessageResponse {
 
     public String getRecipientName() { return recipientName; }
     public void setRecipientName(String recipientName) { this.recipientName = recipientName; }
+
+    public String getRecipientAvatarUrl() { return recipientAvatarUrl; }
+    public void setRecipientAvatarUrl(String recipientAvatarUrl) { this.recipientAvatarUrl = recipientAvatarUrl; }
 
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
