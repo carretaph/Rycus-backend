@@ -13,8 +13,6 @@ import java.time.Instant;
                 @Index(name = "idx_customers_fullName", columnList = "fullName"),
                 @Index(name = "idx_customers_phone", columnList = "phone"),
                 @Index(name = "idx_customers_zip", columnList = "zipCode"),
-
-                // ✅ nuevos indexes recomendados
                 @Index(name = "idx_customers_createdBy", columnList = "createdByUserId"),
                 @Index(name = "idx_customers_createdAt", columnList = "createdAt")
         },
@@ -56,13 +54,18 @@ public class Customer {
     @Column(length = 300)
     private String tags;
 
-    // ✅ NUEVO: quien creó este customer “global”
     @Column(nullable = true)
     private Long createdByUserId;
 
-    // ✅ NUEVO: cuándo fue creado
     @Column(nullable = true)
     private Instant createdAt;
+
+    // Coordenadas del mapa
+    @Column(nullable = true)
+    private Double latitude;
+
+    @Column(nullable = true)
+    private Double longitude;
 
     public Customer() {}
 
@@ -106,4 +109,10 @@ public class Customer {
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    public Double getLatitude() { return latitude; }
+    public void setLatitude(Double latitude) { this.latitude = latitude; }
+
+    public Double getLongitude() { return longitude; }
+    public void setLongitude(Double longitude) { this.longitude = longitude; }
 }

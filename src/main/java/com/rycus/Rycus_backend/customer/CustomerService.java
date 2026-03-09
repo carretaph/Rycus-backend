@@ -1,14 +1,24 @@
 package com.rycus.Rycus_backend.customer;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rycus.Rycus_backend.repository.CustomerRepository;
 import com.rycus.Rycus_backend.repository.UserCustomerRepository;
 import com.rycus.Rycus_backend.repository.UserRepository;
 import com.rycus.Rycus_backend.user.User;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.net.URI;
+import java.net.URLEncoder;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
@@ -19,6 +29,13 @@ public class CustomerService {
     private final CustomerRepository customerRepository;
     private final UserCustomerRepository userCustomerRepository;
     private final UserRepository userRepository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
+
+    @Value("${GOOGLE_MAPS_API_KEY:}")
+    private String googleMapsApiKey;
 
     public CustomerService(CustomerRepository customerRepository,
                            UserCustomerRepository userCustomerRepository,
@@ -28,40 +45,25 @@ public class CustomerService {
         this.userRepository = userRepository;
     }
 
-    // =========================================
-    // 1) GLOBAL: todos los customers
-    // =========================================
     public List<Customer> getAllCustomers() {
         return customerRepository.findAll();
     }
 
-    // =========================================
-    // 2) MY CUSTOMERS: lista REAL por usuario
-    // ✅ FIX: traer Customers ya cargados (NO proxies lazy)
-    // =========================================
     public List<Customer> getCustomersForUser(String userEmail) {
         String email = safeTrim(userEmail);
 
-        // Si no viene email → devolvemos vacío (no global)
         if (email == null) {
             return List.of();
         }
 
         try {
-            // ✅ Query directo por JOIN user_customers -> customers
             return customerRepository.findCustomersLinkedToUser(email);
-
         } catch (Exception ex) {
-            // 🧯 Fallback temporal: si algo va mal, no tiramos 500
             ex.printStackTrace();
-            // Para no romper el dashboard, devolvemos vacío (no global)
             return List.of();
         }
     }
 
-    // =========================================
-    // 3) Obtener un customer por ID
-    // =========================================
     public Customer getCustomerById(Long id) {
         return customerRepository.findById(id)
                 .orElseThrow(() ->
@@ -72,20 +74,14 @@ public class CustomerService {
                 );
     }
 
-    // =========================================
-    // 4) Crear GLOBAL (solo crear) con validación duplicado
-    // =========================================
     public Customer createCustomer(Customer customer) {
         Customer prepared = normalize(customer);
         validateDuplicate(prepared);
+        geocodeIfPossible(prepared);
 
         return customerRepository.save(prepared);
     }
 
-    // =========================================
-    // 5) Crear o reutilizar GLOBAL + Link a usuario
-    //    ✅ Setea createdByUserId SOLO si el customer es NUEV
-    // =========================================
     @Transactional
     public Customer createOrLinkCustomer(String userEmail, Customer incoming) {
         String email = safeTrim(userEmail);
@@ -94,34 +90,34 @@ public class CustomerService {
         }
 
         Customer prepared = normalize(incoming);
-
-        // 👇 userId del creador (para clientes NUEVOS)
         Long creatorUserId = getUserIdByEmailOrNull(email);
 
         Customer customer;
 
-        // Caso A: viene con email (regla principal: unique por email)
         if (prepared.getEmail() != null) {
             customer = customerRepository.findByEmailIgnoreCase(prepared.getEmail())
-                    // existe → merge (NO tocar createdByUserId)
                     .map(existing -> merge(existing, prepared))
-                    .map(customerRepository::save)
-                    // no existe → crear NUEVO → set createdByUserId
+                    .map(c -> {
+                        geocodeIfPossible(c);
+                        return customerRepository.save(c);
+                    })
                     .orElseGet(() -> {
-                        prepared.setCreatedByUserId(creatorUserId); // ✅ importante
+                        prepared.setCreatedByUserId(creatorUserId);
+                        geocodeIfPossible(prepared);
                         return customerRepository.save(prepared);
                     });
 
         } else {
-            // Caso B: sin email → reglas de duplicado por name+phone o name+email
             Optional<Customer> dup = findDuplicateByYourRules(prepared);
 
             if (dup.isPresent()) {
                 customer = merge(dup.get(), prepared);
+                geocodeIfPossible(customer);
                 customer = customerRepository.save(customer);
 
             } else {
-                prepared.setCreatedByUserId(creatorUserId); // ✅ importante
+                prepared.setCreatedByUserId(creatorUserId);
+                geocodeIfPossible(prepared);
                 customer = customerRepository.save(prepared);
             }
         }
@@ -130,9 +126,6 @@ public class CustomerService {
         return customer;
     }
 
-    // =========================================
-    // 6) Link para My Customers (también se usa en reviews)
-    // =========================================
     @Transactional
     public void linkCustomerToUserById(String userEmail, Long customerId) {
         String email = safeTrim(userEmail);
@@ -152,29 +145,42 @@ public class CustomerService {
         userCustomerRepository.save(new UserCustomer(email, customer));
     }
 
-    // =========================================
-    // 7) Update
-    // =========================================
     public Customer updateCustomer(Long id, Customer updates) {
         Customer existing = getCustomerById(id);
+
+        boolean addressChanged = false;
 
         if (updates.getFullName() != null) existing.setFullName(updates.getFullName());
         if (updates.getEmail() != null) existing.setEmail(updates.getEmail());
         if (updates.getPhone() != null) existing.setPhone(updates.getPhone());
-        if (updates.getAddress() != null) existing.setAddress(updates.getAddress());
-        if (updates.getCity() != null) existing.setCity(updates.getCity());
-        if (updates.getState() != null) existing.setState(updates.getState());
-        if (updates.getZipCode() != null) existing.setZipCode(updates.getZipCode());
+
+        if (updates.getAddress() != null) {
+            existing.setAddress(updates.getAddress());
+            addressChanged = true;
+        }
+        if (updates.getCity() != null) {
+            existing.setCity(updates.getCity());
+            addressChanged = true;
+        }
+        if (updates.getState() != null) {
+            existing.setState(updates.getState());
+            addressChanged = true;
+        }
+        if (updates.getZipCode() != null) {
+            existing.setZipCode(updates.getZipCode());
+            addressChanged = true;
+        }
+
         if (updates.getCustomerType() != null) existing.setCustomerType(updates.getCustomerType());
         if (updates.getTags() != null) existing.setTags(updates.getTags());
 
-        // ✅ NO tocar createdByUserId / createdAt aquí.
+        if (addressChanged) {
+            geocodeIfPossible(existing);
+        }
+
         return customerRepository.save(existing);
     }
 
-    // =========================================
-    // 8) Delete
-    // =========================================
     public void deleteCustomer(Long id) {
         if (!customerRepository.existsById(id)) {
             throw new ResponseStatusException(
@@ -185,17 +191,11 @@ public class CustomerService {
         customerRepository.deleteById(id);
     }
 
-    // =========================================
-    // 9) Global search
-    // =========================================
     public List<Customer> searchCustomersGlobal(String term) {
         String normalized = safeTrim(term);
         return customerRepository.searchByText(normalized);
     }
 
-    // =========================================
-    // Helpers
-    // =========================================
     private Customer normalize(Customer customer) {
         if (customer == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Customer body is required");
@@ -208,6 +208,11 @@ public class CustomerService {
         customer.setFullName(fullName);
         customer.setEmail(email);
         customer.setPhone(phone);
+
+        customer.setAddress(safeTrim(customer.getAddress()));
+        customer.setCity(safeTrim(customer.getCity()));
+        customer.setState(safeTrim(customer.getState()));
+        customer.setZipCode(safeTrim(customer.getZipCode()));
 
         return customer;
     }
@@ -240,18 +245,105 @@ public class CustomerService {
     }
 
     private Customer merge(Customer existing, Customer incoming) {
+        boolean addressChanged = false;
+
         if (incoming.getFullName() != null) existing.setFullName(incoming.getFullName());
         if (incoming.getEmail() != null) existing.setEmail(incoming.getEmail());
         if (incoming.getPhone() != null) existing.setPhone(incoming.getPhone());
-        if (incoming.getAddress() != null) existing.setAddress(incoming.getAddress());
-        if (incoming.getCity() != null) existing.setCity(incoming.getCity());
-        if (incoming.getState() != null) existing.setState(incoming.getState());
-        if (incoming.getZipCode() != null) existing.setZipCode(incoming.getZipCode());
+
+        if (incoming.getAddress() != null) {
+            existing.setAddress(incoming.getAddress());
+            addressChanged = true;
+        }
+        if (incoming.getCity() != null) {
+            existing.setCity(incoming.getCity());
+            addressChanged = true;
+        }
+        if (incoming.getState() != null) {
+            existing.setState(incoming.getState());
+            addressChanged = true;
+        }
+        if (incoming.getZipCode() != null) {
+            existing.setZipCode(incoming.getZipCode());
+            addressChanged = true;
+        }
+
         if (incoming.getCustomerType() != null) existing.setCustomerType(incoming.getCustomerType());
         if (incoming.getTags() != null) existing.setTags(incoming.getTags());
 
-        // ✅ NO tocar createdByUserId / createdAt aquí.
+        if (addressChanged) {
+            geocodeIfPossible(existing);
+        }
+
         return existing;
+    }
+
+    private void geocodeIfPossible(Customer customer) {
+        String address = buildFullAddress(customer);
+        if (address == null) {
+            return;
+        }
+
+        if (googleMapsApiKey == null || googleMapsApiKey.isBlank()) {
+            System.out.println("⚠️ GOOGLE_MAPS_API_KEY missing in backend. Skipping geocoding.");
+            return;
+        }
+
+        try {
+            String url = "https://maps.googleapis.com/maps/api/geocode/json?address="
+                    + URLEncoder.encode(address, StandardCharsets.UTF_8)
+                    + "&key="
+                    + URLEncoder.encode(googleMapsApiKey, StandardCharsets.UTF_8);
+
+            HttpRequest request = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(Duration.ofSeconds(15))
+                    .GET()
+                    .build();
+
+            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                System.out.println("⚠️ Geocoding HTTP error: " + response.statusCode() + " for " + address);
+                return;
+            }
+
+            JsonNode root = objectMapper.readTree(response.body());
+            String status = root.path("status").asText();
+
+            if (!"OK".equals(status)) {
+                System.out.println("⚠️ Geocoding failed: " + status + " for " + address);
+                return;
+            }
+
+            JsonNode location = root.path("results").get(0).path("geometry").path("location");
+            if (location.isMissingNode()) {
+                return;
+            }
+
+            customer.setLatitude(location.path("lat").asDouble());
+            customer.setLongitude(location.path("lng").asDouble());
+
+        } catch (Exception ex) {
+            System.out.println("⚠️ Geocoding exception for address: " + address);
+            ex.printStackTrace();
+        }
+    }
+
+    private String buildFullAddress(Customer customer) {
+        String address = safeTrim(customer.getAddress());
+        String city = safeTrim(customer.getCity());
+        String state = safeTrim(customer.getState());
+        String zip = safeTrim(customer.getZipCode());
+
+        String full = String.join(" ",
+                address == null ? "" : address,
+                city == null ? "" : city,
+                state == null ? "" : state,
+                zip == null ? "" : zip
+        ).trim();
+
+        return full.isBlank() ? null : full;
     }
 
     private String safeTrim(String value) {
