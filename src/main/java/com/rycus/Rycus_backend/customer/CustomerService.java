@@ -78,7 +78,6 @@ public class CustomerService {
         Customer prepared = normalize(customer);
         validateDuplicate(prepared);
         geocodeIfPossible(prepared);
-
         return customerRepository.save(prepared);
     }
 
@@ -114,7 +113,6 @@ public class CustomerService {
                 customer = merge(dup.get(), prepared);
                 geocodeIfPossible(customer);
                 customer = customerRepository.save(customer);
-
             } else {
                 prepared.setCreatedByUserId(creatorUserId);
                 geocodeIfPossible(prepared);
@@ -198,17 +196,12 @@ public class CustomerService {
 
     private Customer normalize(Customer customer) {
         if (customer == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Customer body is required");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Customer body required");
         }
 
-        String fullName = safeTrim(customer.getFullName());
-        String email = safeTrim(customer.getEmail());
-        String phone = safeTrim(customer.getPhone());
-
-        customer.setFullName(fullName);
-        customer.setEmail(email);
-        customer.setPhone(phone);
-
+        customer.setFullName(safeTrim(customer.getFullName()));
+        customer.setEmail(safeTrim(customer.getEmail()));
+        customer.setPhone(safeTrim(customer.getPhone()));
         customer.setAddress(safeTrim(customer.getAddress()));
         customer.setCity(safeTrim(customer.getCity()));
         customer.setState(safeTrim(customer.getState()));
@@ -230,50 +223,30 @@ public class CustomerService {
         String phone = customer.getPhone();
 
         if (fullName != null && phone != null) {
-            Optional<Customer> existingByNameAndPhone =
+            Optional<Customer> existing =
                     customerRepository.findByFullNameIgnoreCaseAndPhone(fullName, phone);
-            if (existingByNameAndPhone.isPresent()) return existingByNameAndPhone;
+            if (existing.isPresent()) return existing;
         }
 
         if (fullName != null && email != null) {
-            Optional<Customer> existingByNameAndEmail =
+            Optional<Customer> existing =
                     customerRepository.findByFullNameIgnoreCaseAndEmail(fullName, email);
-            if (existingByNameAndEmail.isPresent()) return existingByNameAndEmail;
+            if (existing.isPresent()) return existing;
         }
 
         return Optional.empty();
     }
 
     private Customer merge(Customer existing, Customer incoming) {
-        boolean addressChanged = false;
-
         if (incoming.getFullName() != null) existing.setFullName(incoming.getFullName());
         if (incoming.getEmail() != null) existing.setEmail(incoming.getEmail());
         if (incoming.getPhone() != null) existing.setPhone(incoming.getPhone());
-
-        if (incoming.getAddress() != null) {
-            existing.setAddress(incoming.getAddress());
-            addressChanged = true;
-        }
-        if (incoming.getCity() != null) {
-            existing.setCity(incoming.getCity());
-            addressChanged = true;
-        }
-        if (incoming.getState() != null) {
-            existing.setState(incoming.getState());
-            addressChanged = true;
-        }
-        if (incoming.getZipCode() != null) {
-            existing.setZipCode(incoming.getZipCode());
-            addressChanged = true;
-        }
-
+        if (incoming.getAddress() != null) existing.setAddress(incoming.getAddress());
+        if (incoming.getCity() != null) existing.setCity(incoming.getCity());
+        if (incoming.getState() != null) existing.setState(incoming.getState());
+        if (incoming.getZipCode() != null) existing.setZipCode(incoming.getZipCode());
         if (incoming.getCustomerType() != null) existing.setCustomerType(incoming.getCustomerType());
         if (incoming.getTags() != null) existing.setTags(incoming.getTags());
-
-        if (addressChanged) {
-            geocodeIfPossible(existing);
-        }
 
         return existing;
     }
@@ -284,8 +257,10 @@ public class CustomerService {
             return;
         }
 
-        if (googleMapsApiKey == null || googleMapsApiKey.isBlank()) {
-            System.out.println("⚠️ GOOGLE_MAPS_API_KEY missing in backend. Skipping geocoding.");
+        String apiKey = googleMapsApiKey == null ? "" : googleMapsApiKey.trim();
+
+        if (apiKey.isBlank()) {
+            System.out.println("⚠️ GOOGLE_MAPS_API_KEY missing in backend.");
             return;
         }
 
@@ -293,7 +268,7 @@ public class CustomerService {
             String url = "https://maps.googleapis.com/maps/api/geocode/json?address="
                     + URLEncoder.encode(address, StandardCharsets.UTF_8)
                     + "&key="
-                    + URLEncoder.encode(googleMapsApiKey, StandardCharsets.UTF_8);
+                    + URLEncoder.encode(apiKey, StandardCharsets.UTF_8);
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
@@ -301,31 +276,33 @@ public class CustomerService {
                     .GET()
                     .build();
 
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                System.out.println("⚠️ Geocoding HTTP error: " + response.statusCode() + " for " + address);
-                return;
-            }
+            HttpResponse<String> response =
+                    httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             JsonNode root = objectMapper.readTree(response.body());
             String status = root.path("status").asText();
+            String errorMessage = root.path("error_message").asText("");
 
             if (!"OK".equals(status)) {
                 System.out.println("⚠️ Geocoding failed: " + status + " for " + address);
+                if (!errorMessage.isBlank()) {
+                    System.out.println("⚠️ Google error_message: " + errorMessage);
+                }
                 return;
             }
 
-            JsonNode location = root.path("results").get(0).path("geometry").path("location");
-            if (location.isMissingNode()) {
-                return;
-            }
+            JsonNode location = root.path("results")
+                    .get(0)
+                    .path("geometry")
+                    .path("location");
 
             customer.setLatitude(location.path("lat").asDouble());
             customer.setLongitude(location.path("lng").asDouble());
 
+            System.out.println("✅ Geocoded: " + address);
+
         } catch (Exception ex) {
-            System.out.println("⚠️ Geocoding exception for address: " + address);
+            System.out.println("⚠️ Geocoding exception for " + address);
             ex.printStackTrace();
         }
     }
