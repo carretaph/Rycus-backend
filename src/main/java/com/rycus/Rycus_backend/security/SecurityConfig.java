@@ -49,18 +49,35 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // ✅ ORIGINS exactos permitidos
         config.setAllowedOrigins(List.of(
                 "http://localhost:5173",
                 "http://localhost:5174",
                 "http://localhost",
                 "https://rycus.app",
                 "https://www.rycus.app",
-                "capacitor://localhost"
+                "capacitor://localhost",
+                "ionic://localhost"
         ));
 
-        // ✅ patterns adicionales
         config.setAllowedOriginPatterns(List.of(
+                "http://192.168.*.*:5173",
+                "http://10.*.*.*:5173",
+                "http://172.16.*.*:5173",
+                "http://172.17.*.*:5173",
+                "http://172.18.*.*:5173",
+                "http://172.19.*.*:5173",
+                "http://172.20.*.*:5173",
+                "http://172.21.*.*:5173",
+                "http://172.22.*.*:5173",
+                "http://172.23.*.*:5173",
+                "http://172.24.*.*:5173",
+                "http://172.25.*.*:5173",
+                "http://172.26.*.*:5173",
+                "http://172.27.*.*:5173",
+                "http://172.28.*.*:5173",
+                "http://172.29.*.*:5173",
+                "http://172.30.*.*:5173",
+                "http://172.31.*.*:5173",
                 "https://*.vercel.app"
         ));
 
@@ -88,9 +105,6 @@ public class SecurityConfig {
                 .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(auth -> auth
 
-                        // =========================================================
-                        // PUBLIC (basic)
-                        // =========================================================
                         .requestMatchers(
                                 "/",
                                 "/ping",
@@ -99,9 +113,6 @@ public class SecurityConfig {
                                 "/error"
                         ).permitAll()
 
-                        // =========================================================
-                        // ACTUATOR (PUBLIC - health/info only)
-                        // =========================================================
                         .requestMatchers(
                                 "/actuator/health",
                                 "/actuator/health/**",
@@ -109,14 +120,8 @@ public class SecurityConfig {
                                 "/actuator/info/**"
                         ).permitAll()
 
-                        // =========================================================
-                        // PUBLIC FEED
-                        // =========================================================
                         .requestMatchers(HttpMethod.GET, "/posts/feed", "/posts/feed/**").permitAll()
 
-                        // =========================================================
-                        // API PROTECTED
-                        // =========================================================
                         .requestMatchers("/posts/**").authenticated()
                         .requestMatchers("/customers/**").authenticated()
                         .requestMatchers("/reviews/**").authenticated()
@@ -124,9 +129,6 @@ public class SecurityConfig {
                         .requestMatchers("/users/**").authenticated()
                         .requestMatchers("/connections/**").authenticated()
 
-                        // =========================================================
-                        // RESTO
-                        // =========================================================
                         .anyRequest().authenticated()
                 );
 

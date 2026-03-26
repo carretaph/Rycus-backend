@@ -34,7 +34,7 @@ public class CustomerService {
             .connectTimeout(Duration.ofSeconds(10))
             .build();
 
-    @Value("${GOOGLE_MAPS_API_KEY:}")
+    @Value("${GOOGLE_GEOCODING_API_KEY:${GOOGLE_MAPS_API_KEY:}}")
     private String googleMapsApiKey;
 
     public CustomerService(CustomerRepository customerRepository,
@@ -179,6 +179,66 @@ public class CustomerService {
         return customerRepository.save(existing);
     }
 
+    @Transactional
+    public int geocodeAllMissingCustomers() {
+        List<Customer> customers = customerRepository.findAll();
+        int updated = 0;
+
+        for (Customer customer : customers) {
+            boolean missingCoords =
+                    customer.getLatitude() == null || customer.getLongitude() == null;
+
+            if (!missingCoords) {
+                continue;
+            }
+
+            Double beforeLat = customer.getLatitude();
+            Double beforeLng = customer.getLongitude();
+
+            geocodeIfPossible(customer);
+
+            boolean nowHasCoords =
+                    customer.getLatitude() != null && customer.getLongitude() != null;
+
+            boolean changed =
+                    (beforeLat == null && beforeLng == null && nowHasCoords) ||
+                            (beforeLat != null && beforeLng != null &&
+                                    (!beforeLat.equals(customer.getLatitude()) || !beforeLng.equals(customer.getLongitude())));
+
+            if (changed) {
+                customerRepository.save(customer);
+                updated++;
+            }
+        }
+
+        return updated;
+    }
+
+    @Transactional
+    public int geocodeCustomerById(Long customerId) {
+        Customer customer = getCustomerById(customerId);
+
+        Double beforeLat = customer.getLatitude();
+        Double beforeLng = customer.getLongitude();
+
+        geocodeIfPossible(customer);
+
+        boolean nowHasCoords =
+                customer.getLatitude() != null && customer.getLongitude() != null;
+
+        boolean changed =
+                (beforeLat == null && beforeLng == null && nowHasCoords) ||
+                        (beforeLat != null && beforeLng != null &&
+                                (!beforeLat.equals(customer.getLatitude()) || !beforeLng.equals(customer.getLongitude())));
+
+        if (changed) {
+            customerRepository.save(customer);
+            return 1;
+        }
+
+        return 0;
+    }
+
     public void deleteCustomer(Long id) {
         if (!customerRepository.existsById(id)) {
             throw new ResponseStatusException(
@@ -260,7 +320,7 @@ public class CustomerService {
         String apiKey = googleMapsApiKey == null ? "" : googleMapsApiKey.trim();
 
         if (apiKey.isBlank()) {
-            System.out.println("⚠️ GOOGLE_MAPS_API_KEY missing in backend.");
+            System.out.println("⚠️ GOOGLE_GEOCODING_API_KEY missing in backend.");
             return;
         }
 

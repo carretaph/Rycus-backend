@@ -20,10 +20,6 @@ public class CustomerController {
 
     // =========================================
     // GET /customers
-    // Si viene userEmail => devuelve SOLO sus clientes (My Customers)
-    // Si no viene => devuelve todos (Global)
-    //
-    // ✅ Devuelve DTO para evitar LazyInitialization (no Session)
     // =========================================
     @GetMapping
     public ResponseEntity<List<CustomerDto>> getCustomers(
@@ -50,10 +46,7 @@ public class CustomerController {
     }
 
     // =========================================
-    // 🔍 GET /customers/search?q=texto
-    // Búsqueda GLOBAL
-    //
-    // ✅ Devuelve DTO para evitar LazyInitialization
+    // 🔍 SEARCH
     // =========================================
     @GetMapping("/search")
     public ResponseEntity<List<CustomerDto>> searchCustomers(@RequestParam("q") String query) {
@@ -72,9 +65,7 @@ public class CustomerController {
     }
 
     // =========================================
-    // GET /customers/{id}
-    //
-    // ✅ Devuelve DTO para evitar LazyInitialization
+    // GET BY ID
     // =========================================
     @GetMapping("/{id}")
     public ResponseEntity<CustomerDto> getCustomerById(@PathVariable Long id) {
@@ -90,11 +81,7 @@ public class CustomerController {
     }
 
     // =========================================
-    // POST /customers
-    // - Si viene userEmail => crea o reutiliza customer GLOBAL y lo linkea a My Customers
-    // - Si no viene userEmail => crea customer GLOBAL (compatibilidad)
-    //
-    // ✅ Devuelve DTO por consistencia
+    // CREATE
     // =========================================
     @PostMapping
     public ResponseEntity<CustomerDto> createCustomer(
@@ -121,8 +108,7 @@ public class CustomerController {
     }
 
     // =========================================
-    // POST /customers/{id}/link
-    // Linkea un customer EXISTENTE a un usuario (My Customers)
+    // LINK
     // =========================================
     @PostMapping("/{id}/link")
     public ResponseEntity<Void> linkCustomerToUser(
@@ -147,9 +133,7 @@ public class CustomerController {
     }
 
     // =========================================
-    // PUT /customers/{id}
-    //
-    // ✅ Devuelve DTO para evitar LazyInitialization
+    // UPDATE
     // =========================================
     @PutMapping("/{id}")
     public ResponseEntity<CustomerDto> updateCustomer(
@@ -168,7 +152,7 @@ public class CustomerController {
     }
 
     // =========================================
-    // DELETE /customers/{id}
+    // DELETE
     // =========================================
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteCustomer(@PathVariable Long id) {
@@ -180,6 +164,38 @@ public class CustomerController {
             System.out.println("❌ DELETE /customers/" + id + " failed.");
             ex.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    // =========================================
+    // 🔥 NEW: GEOCODE ALL (BACKFILL)
+    // =========================================
+    @PostMapping("/geocode-all")
+    public ResponseEntity<String> geocodeAllCustomers() {
+        try {
+            int updated = customerService.geocodeAllMissingCustomers();
+            return ResponseEntity.ok("Geocoded customers updated: " + updated);
+
+        } catch (Exception ex) {
+            System.out.println("❌ POST /customers/geocode-all failed.");
+            ex.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error running geocode-all");
+        }
+    }
+
+    // =========================================
+    // 🔥 NEW: GEOCODE ONE
+    // =========================================
+    @PostMapping("/{id}/geocode")
+    public ResponseEntity<String> geocodeCustomer(@PathVariable Long id) {
+        try {
+            int updated = customerService.geocodeCustomerById(id);
+            return ResponseEntity.ok("Geocoded customer updated: " + updated);
+
+        } catch (Exception ex) {
+            System.out.println("❌ POST /customers/" + id + "/geocode failed.");
+            ex.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error geocoding customer");
         }
     }
 }
