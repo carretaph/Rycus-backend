@@ -122,9 +122,7 @@ public class SecurityConfig {
 
                         .requestMatchers(HttpMethod.GET, "/posts/feed", "/posts/feed/**").permitAll()
 
-                        // ✅ TEMPORAL: permitir backfill de geocoding
-                        .requestMatchers("/customers/geocode-all", "/customers/*/geocode").permitAll()
-
+                        // 🔒 TODO protegido nuevamente
                         .requestMatchers("/posts/**").authenticated()
                         .requestMatchers("/customers/**").authenticated()
                         .requestMatchers("/reviews/**").authenticated()
