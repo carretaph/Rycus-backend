@@ -1,19 +1,17 @@
 package com.rycus.Rycus_backend.config;
 
+import jakarta.mail.internet.MimeMessage;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 
-import jakarta.mail.internet.MimeMessage;
-
 /**
- * LOCAL ONLY: evita que la app se caiga si no tienes SMTP configurado.
- * En producción (Render) NO se usa este bean.
+ * Dummy mail sender.
+ * Permite que el backend arranque aunque no haya SMTP configurado.
+ * En local solo imprime el email en consola.
  */
 @Configuration
-@Profile("local")
 public class LocalMailConfig {
 
     @Bean
@@ -22,7 +20,6 @@ public class LocalMailConfig {
 
             @Override
             public MimeMessage createMimeMessage() {
-                // No se usa en local normalmente; devolver null es OK si tu EmailService no lo llama.
                 return null;
             }
 
@@ -43,9 +40,11 @@ public class LocalMailConfig {
 
             @Override
             public void send(SimpleMailMessage simpleMessage) {
-                System.out.println("📧 [LOCAL] EmailService send(SimpleMailMessage) TO="
-                        + String.join(",", simpleMessage.getTo() == null ? new String[]{} : simpleMessage.getTo())
-                        + " SUBJECT=" + simpleMessage.getSubject());
+                String[] to = simpleMessage.getTo() == null ? new String[]{} : simpleMessage.getTo();
+
+                System.out.println("📧 [LOCAL] EmailService send(SimpleMailMessage)");
+                System.out.println("📧 [LOCAL] TO=" + String.join(",", to));
+                System.out.println("📧 [LOCAL] SUBJECT=" + simpleMessage.getSubject());
                 System.out.println("📧 [LOCAL] BODY=" + simpleMessage.getText());
             }
 
