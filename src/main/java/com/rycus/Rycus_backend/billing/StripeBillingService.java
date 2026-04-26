@@ -28,25 +28,18 @@ public class StripeBillingService {
         this.userRepository = userRepository;
     }
 
-    // =========================
-    // Verify webhook signature
-    // =========================
     public Event verifyWebhook(String payload, String sigHeader)
             throws SignatureVerificationException {
 
         if (webhookSecret == null || webhookSecret.isBlank()) {
             throw new IllegalStateException("STRIPE_WEBHOOK_SECRET is missing");
         }
+
         return Webhook.constructEvent(payload, sigHeader, webhookSecret);
     }
 
-    // =========================
-    // Main router
-    // =========================
     public void handleEvent(Event event) {
-
         switch (event.getType()) {
-
             case "checkout.session.completed" ->
                     handleCheckoutSessionCompleted(event);
 
@@ -69,9 +62,17 @@ public class StripeBillingService {
         }
     }
 
-    // =========================
-    // Handlers
-    // =========================
+    private void activateUser(User user) {
+        user.setSubscriptionStatus("active");
+
+        if (user.getPlanType() == null) {
+            user.setPlanType(PlanType.FREE_TRIAL);
+        }
+    }
+
+    private void blockUser(User user, String status) {
+        user.setSubscriptionStatus(status);
+    }
 
     private void handleCheckoutSessionCompleted(Event event) {
         Optional<StripeObject> opt = event.getDataObjectDeserializer().getObject();
@@ -80,6 +81,11 @@ public class StripeBillingService {
         if (!(opt.get() instanceof Session session)) return;
 
         String email = session.getClientReferenceId();
+
+        if (email == null || email.isBlank()) {
+            email = session.getCustomerEmail();
+        }
+
         if (email == null || email.isBlank()) return;
 
         User user = userRepository
@@ -96,10 +102,7 @@ public class StripeBillingService {
             user.setStripeSubscriptionId(session.getSubscription());
         }
 
-        if (user.getPlanType() == null) {
-            user.setPlanType(PlanType.FREE_TRIAL);
-        }
-
+        activateUser(user);
         userRepository.save(user);
     }
 
@@ -127,6 +130,17 @@ public class StripeBillingService {
         user.setTrialEndsAt(trialEnd);
         user.setSubscriptionEndsAt(periodEnd);
 
+        String status = sub.getStatus();
+
+        if ("active".equalsIgnoreCase(status) || "trialing".equalsIgnoreCase(status)) {
+            activateUser(user);
+        } else if ("past_due".equalsIgnoreCase(status)
+                || "canceled".equalsIgnoreCase(status)
+                || "unpaid".equalsIgnoreCase(status)
+                || "incomplete_expired".equalsIgnoreCase(status)) {
+            blockUser(user, status);
+        }
+
         userRepository.save(user);
     }
 
@@ -142,7 +156,7 @@ public class StripeBillingService {
 
         if (user == null) return;
 
-        user.setSubscriptionStatus("canceled");
+        blockUser(user, "canceled");
         userRepository.save(user);
     }
 
@@ -158,7 +172,7 @@ public class StripeBillingService {
 
         if (user == null) return;
 
-        user.setSubscriptionStatus("active");
+        activateUser(user);
         userRepository.save(user);
     }
 
@@ -174,21 +188,21 @@ public class StripeBillingService {
 
         if (user == null) return;
 
-        user.setSubscriptionStatus("past_due");
+        blockUser(user, "past_due");
         userRepository.save(user);
     }
 
-    // =========================
-    // Helpers
-    // =========================
     private Instant extractEpoch(Subscription sub, String field) {
         try {
             if (sub.getRawJsonObject() == null) return null;
             Object v = sub.getRawJsonObject().get(field);
+
             if (v instanceof Number n) {
                 return Instant.ofEpochSecond(n.longValue());
             }
-        } catch (Exception ignored) {}
+        } catch (Exception ignored) {
+        }
+
         return null;
     }
 }
