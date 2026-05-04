@@ -16,7 +16,8 @@ public class StripeCheckoutService {
     @Value("${stripe.price.id:}")
     private String priceId;
 
-    @Value("${rycus.app.url:https://rycus.app}")
+    // 🔥 CAMBIO CLAVE AQUÍ
+    @Value("${rycus.app.url:https://www.rycus.app}")
     private String frontendUrl;
 
     public String createCheckoutUrl(String userEmail) throws StripeException {
@@ -29,6 +30,7 @@ public class StripeCheckoutService {
 
         Stripe.apiKey = stripeSecretKey;
 
+        // 🔥 YA USA www (sin redirect)
         String successUrl = frontendUrl + "/billing/success";
         String cancelUrl  = frontendUrl + "/billing/cancel";
 
@@ -46,7 +48,7 @@ public class StripeCheckoutService {
                 )
                 .setSubscriptionData(
                         SessionCreateParams.SubscriptionData.builder()
-                                .setTrialPeriodDays(30L) // ✅ 30 días trial
+                                .setTrialPeriodDays(30L)
                                 .build()
                 )
                 .build();
