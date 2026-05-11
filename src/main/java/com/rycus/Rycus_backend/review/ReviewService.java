@@ -17,65 +17,107 @@ public class ReviewService {
     private final ReviewRepository reviewRepository;
     private final CustomerRepository customerRepository;
 
-    public ReviewService(ReviewRepository reviewRepository, CustomerRepository customerRepository) {
+    public ReviewService(
+            ReviewRepository reviewRepository,
+            CustomerRepository customerRepository
+    ) {
         this.reviewRepository = reviewRepository;
         this.customerRepository = customerRepository;
     }
 
     // =========================================================
-    // ✅ GET reviews for a customer (optionally filtered by user)
-    // Used by ReviewController.getReviewsByCustomer(...)
+    // GET reviews for a customer
     // =========================================================
-    public List<ReviewDto> getReviewsForCustomer(Long customerId, String userEmail) {
+    public List<ReviewDto> getReviewsForCustomer(
+            Long customerId,
+            String userEmail
+    ) {
+
         if (customerId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "customerId is required");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "customerId is required"
+            );
         }
 
-        // Si mandan userEmail, filtramos por ese usuario
+        // =====================================================
+        // Si mandan userEmail => filtra por usuario
+        // =====================================================
         if (userEmail != null && !userEmail.trim().isBlank()) {
+
             String email = userEmail.trim().toLowerCase();
+
             return reviewRepository
-                    .findByCustomerIdAndCreatedByFetchCustomer(customerId, email)
+                    .findByCustomerIdAndCreatedByFetchCustomer(
+                            customerId,
+                            email
+                    )
                     .stream()
                     .map(ReviewDto::new)
                     .toList();
         }
 
-        // Si no mandan userEmail, devolvemos todos los reviews del customer
+        // =====================================================
+        // Si NO mandan userEmail => devolver TODOS los reviews
+        // =====================================================
         return reviewRepository
-                .findByCustomerIdOrderByCreatedAtDesc(customerId)
+                .findAllByCustomerIdFetchCustomer(customerId)
                 .stream()
                 .map(ReviewDto::new)
                 .toList();
     }
 
     // =========================================================
-    // ✅ CREATE review (anti-spam + createdBy normalized)
-    // Used by ReviewController.createReviewForCustomer(...)
+    // CREATE review
     // =========================================================
-    public ReviewDto createReview(Long customerId, Review reviewRequest, String userEmail) {
+    public ReviewDto createReview(
+            Long customerId,
+            Review reviewRequest,
+            String userEmail
+    ) {
 
         if (customerId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "customerId is required");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "customerId is required"
+            );
         }
 
         if (userEmail == null || userEmail.trim().isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "userEmail is required");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "userEmail is required"
+            );
         }
 
         String emailNormalized = userEmail.trim().toLowerCase();
 
-        Customer customer = customerRepository.findById(customerId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Customer not found"));
+        Customer customer = customerRepository
+                .findById(customerId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.NOT_FOUND,
+                                "Customer not found"
+                        )
+                );
 
-        // Anti-spam: mismo usuario + mismo customer + 5 segundos
+        // =====================================================
+        // Anti-spam
+        // =====================================================
         Review last = reviewRepository
-                .findTopByCustomer_IdAndCreatedByIgnoreCaseOrderByCreatedAtDesc(customerId, emailNormalized)
+                .findTopByCustomer_IdAndCreatedByIgnoreCaseOrderByCreatedAtDesc(
+                        customerId,
+                        emailNormalized
+                )
                 .orElse(null);
 
         if (last != null && last.getCreatedAt() != null) {
-            OffsetDateTime cutoff = OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(5);
+
+            OffsetDateTime cutoff =
+                    OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(5);
+
             if (last.getCreatedAt().isAfter(cutoff)) {
+
                 throw new ResponseStatusException(
                         HttpStatus.CONFLICT,
                         "Duplicate submission detected. Please wait a few seconds and try again."
@@ -84,7 +126,10 @@ public class ReviewService {
         }
 
         Review r = new Review();
+
         r.setCustomer(customer);
+
+        // createdBy = email normalized
         r.setCreatedBy(emailNormalized);
 
         r.setRatingOverall(reviewRequest.getRatingOverall());
@@ -93,23 +138,29 @@ public class ReviewService {
         r.setRatingCommunication(reviewRequest.getRatingCommunication());
         r.setComment(reviewRequest.getComment());
 
-        // createdAt lo setea @PrePersist si viene null (UTC)
         Review saved = reviewRepository.save(r);
 
         return new ReviewDto(saved);
     }
 
     // =========================================================
-    // ✅ DELETE review by id
-    // Used by ReviewController.deleteReview(...)
+    // DELETE review
     // =========================================================
     public void deleteReview(Long reviewId) {
+
         if (reviewId == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "reviewId is required");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "reviewId is required"
+            );
         }
 
         if (!reviewRepository.existsById(reviewId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Review not found");
+
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Review not found"
+            );
         }
 
         reviewRepository.deleteById(reviewId);

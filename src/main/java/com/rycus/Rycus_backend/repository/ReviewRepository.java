@@ -12,13 +12,21 @@ import java.util.Optional;
 public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     // =========================================
-    // Reviews de un customer (más recientes primero)
+    // Reviews de un customer, todos, más recientes primero
     // =========================================
-    List<Review> findByCustomerIdOrderByCreatedAtDesc(Long customerId);
+    @Query("""
+        SELECT r
+        FROM Review r
+        JOIN FETCH r.customer c
+        WHERE c.id = :customerId
+        ORDER BY r.createdAt DESC
+    """)
+    List<Review> findAllByCustomerIdFetchCustomer(
+            @Param("customerId") Long customerId
+    );
 
     // =========================================
-    // ✅ Reviews de un customer creados por un usuario
-    // + JOIN FETCH customer para evitar LazyInitialization
+    // Reviews de un customer creados por un usuario
     // =========================================
     @Query("""
         SELECT r
@@ -34,13 +42,12 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     );
 
     // =========================================
-    // Reviews creados por un usuario (email)
+    // Reviews creados por un usuario
     // =========================================
     List<Review> findByCreatedByIgnoreCase(String createdBy);
 
     // =========================================
-    // (OPCIONAL) Anti-spam suave:
-    // último review del mismo usuario para ese customer
+    // Anti-spam: último review del mismo usuario para ese customer
     // =========================================
     Optional<Review> findTopByCustomer_IdAndCreatedByIgnoreCaseOrderByCreatedAtDesc(
             Long customerId,
@@ -48,12 +55,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     );
 
     // =========================================
-    // ⭐ CLAVE DEL MILESTONE ⭐
-    // Cuenta CUÁNTOS CUSTOMERS DISTINTOS ha revieweado el usuario
-    // dentro de una ventana (promo 3 meses)
-    //
-    // ✅ IMPORTANTE:
-    // Usamos OffsetDateTime para evitar bugs de timezone con Postgres.
+    // Milestone: customers distintos revieweados por usuario en ventana
     // =========================================
     @Query("""
         SELECT COUNT(DISTINCT r.customer.id)
@@ -69,7 +71,7 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     );
 
     // =========================================
-    // ⭐ inicio real de la promo (primer review del usuario)
+    // Primer review del usuario
     // =========================================
     @Query("""
         SELECT MIN(r.createdAt)
