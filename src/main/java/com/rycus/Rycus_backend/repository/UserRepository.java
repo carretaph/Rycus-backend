@@ -24,7 +24,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByEmail(String email);
 
-    // Evita duplicados aunque cambien mayúsculas
     boolean existsByEmailIgnoreCase(String email);
 
     List<User> findByFullNameContainingIgnoreCaseOrEmailContainingIgnoreCase(
@@ -36,6 +35,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // USERS SEARCH (LIVIANO)
     // /users/search?q=...
     // =========================================================
+
     @Query("""
         select new com.rycus.Rycus_backend.user.dto.UserMiniDto(
             u.id,
@@ -51,9 +51,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<UserMiniDto> searchMini(@Param("q") String q);
 
     // =========================================================
-    // USERS SEARCH + REFERRAL FEE (NUEVO)
+    // USERS SEARCH + REFERRAL FEE
     // /users/search-referrals?q=...
+    // Busca en name/email/industry/city/state
     // =========================================================
+
     @Query("""
         select new com.rycus.Rycus_backend.user.dto.UserSearchDto(
             u.id,
@@ -71,10 +73,54 @@ public interface UserRepository extends JpaRepository<User, Long> {
             or lower(coalesce(u.email, '')) like lower(concat('%', :q, '%'))
             or lower(coalesce(u.industry, '')) like lower(concat('%', :q, '%'))
             or lower(coalesce(u.city, '')) like lower(concat('%', :q, '%'))
+            or lower(coalesce(u.state, '')) like lower(concat('%', :q, '%'))
         )
         order by u.offersReferralFee desc, coalesce(u.fullName, u.email) asc
     """)
     List<UserSearchDto> searchWithReferralFee(@Param("q") String q);
+
+    // =========================================================
+    // ADVANCED USERS SEARCH + REFERRAL FEE
+    // /users/search-referrals/advanced?nameEmail=&industry=&location=
+    // location busca city/state
+    // =========================================================
+
+    @Query("""
+        select new com.rycus.Rycus_backend.user.dto.UserSearchDto(
+            u.id,
+            u.fullName,
+            u.email,
+            u.avatarUrl,
+            u.offersReferralFee,
+            u.referralFeeType,
+            u.referralFeeValue,
+            u.referralFeeNotes
+        )
+        from User u
+        where (
+            :nameEmail is null
+            or :nameEmail = ''
+            or lower(coalesce(u.fullName, '')) like lower(concat('%', :nameEmail, '%'))
+            or lower(coalesce(u.email, '')) like lower(concat('%', :nameEmail, '%'))
+        )
+        and (
+            :industry is null
+            or :industry = ''
+            or lower(coalesce(u.industry, '')) like lower(concat('%', :industry, '%'))
+        )
+        and (
+            :location is null
+            or :location = ''
+            or lower(coalesce(u.city, '')) like lower(concat('%', :location, '%'))
+            or lower(coalesce(u.state, '')) like lower(concat('%', :location, '%'))
+        )
+        order by u.offersReferralFee desc, coalesce(u.fullName, u.email) asc
+    """)
+    List<UserSearchDto> searchWithReferralFeeAdvanced(
+            @Param("nameEmail") String nameEmail,
+            @Param("industry") String industry,
+            @Param("location") String location
+    );
 
     // =========================================================
     // REFERRALS CORE

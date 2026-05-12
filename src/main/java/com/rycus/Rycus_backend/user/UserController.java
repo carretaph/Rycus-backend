@@ -3,6 +3,7 @@ package com.rycus.Rycus_backend.user;
 import com.rycus.Rycus_backend.repository.UserRepository;
 import com.rycus.Rycus_backend.user.dto.SafeUserDto;
 import com.rycus.Rycus_backend.user.dto.UserMiniDto;
+import com.rycus.Rycus_backend.user.dto.UserSearchDto;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -35,10 +36,9 @@ public class UserController {
         public String city;
         public String state;
 
-        // ✅ Referral Fee
         public Boolean offersReferralFee;
-        public String referralFeeType;      // "FLAT" o "PERCENT"
-        public BigDecimal referralFeeValue; // 25.00, etc
+        public String referralFeeType;
+        public BigDecimal referralFeeValue;
         public String referralFeeNotes;
     }
 
@@ -76,7 +76,8 @@ public class UserController {
 
     /**
      * =========================================================
-     * PUT /users/me   (USA EL JWT) ✅ ACTUALIZA PERFIL + REFERRAL
+     * PUT /users/me   (USA EL JWT)
+     * Actualiza perfil + referral fee
      * =========================================================
      */
     @PutMapping("/me")
@@ -93,7 +94,6 @@ public class UserController {
                 .findByEmailIgnoreCase(email.trim())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        // --- campos normales (solo si vienen en body) ---
         if (body != null) {
             if (body.fullName != null) user.setFullName(body.fullName.trim());
             if (body.phone != null) user.setPhone(body.phone.trim());
@@ -103,16 +103,16 @@ public class UserController {
             if (body.city != null) user.setCity(body.city.trim());
             if (body.state != null) user.setState(body.state.trim());
 
-            // --- ✅ referral fee ---
             if (body.offersReferralFee != null) {
                 user.setOffersReferralFee(body.offersReferralFee);
+
                 if (!body.offersReferralFee) {
-                    // si apaga, limpia todo
                     user.setReferralFeeType(null);
                     user.setReferralFeeValue(null);
                     user.setReferralFeeNotes(null);
                 }
             }
+
             if (body.referralFeeType != null) user.setReferralFeeType(body.referralFeeType.trim());
             if (body.referralFeeValue != null) user.setReferralFeeValue(body.referralFeeValue);
             if (body.referralFeeNotes != null) user.setReferralFeeNotes(body.referralFeeNotes.trim());
@@ -145,7 +145,7 @@ public class UserController {
     /**
      * =========================================================
      * GET /users/{id}
-     * (Regex para que NO choque con /me)
+     * Regex para que NO choque con /me
      * =========================================================
      */
     @GetMapping("/{id:\\d+}")
@@ -162,6 +162,7 @@ public class UserController {
      * =========================================================
      * GET /users/search?q=...
      * GET /users/search?query=...
+     * Búsqueda liviana por nombre/email
      * =========================================================
      */
     @GetMapping("/search")
@@ -180,8 +181,47 @@ public class UserController {
         return ResponseEntity.ok(results);
     }
 
+    /**
+     * =========================================================
+     * GET /users/search-referrals/advanced
+     *
+     * Busca usuarios por:
+     * - nameEmail: fullName/email
+     * - industry: industry
+     * - location: city/state
+     * =========================================================
+     */
+    @GetMapping("/search-referrals/advanced")
+    public ResponseEntity<List<UserSearchDto>> searchReferralsAdvanced(
+            @RequestParam(required = false) String nameEmail,
+            @RequestParam(required = false) String industry,
+            @RequestParam(required = false) String location
+    ) {
+
+        String cleanNameEmail = clean(nameEmail);
+        String cleanIndustry = clean(industry);
+        String cleanLocation = clean(location);
+
+        if (cleanNameEmail.isBlank() && cleanIndustry.isBlank() && cleanLocation.isBlank()) {
+            return ResponseEntity.ok(List.of());
+        }
+
+        List<UserSearchDto> results =
+                userRepository.searchWithReferralFeeAdvanced(
+                        cleanNameEmail,
+                        cleanIndustry,
+                        cleanLocation
+                );
+
+        return ResponseEntity.ok(results);
+    }
+
     @GetMapping("/me-test")
     public ResponseEntity<String> testDeploy() {
         return ResponseEntity.ok("NEW VERSION DEPLOYED ✅");
+    }
+
+    private String clean(String value) {
+        return value == null ? "" : value.trim();
     }
 }

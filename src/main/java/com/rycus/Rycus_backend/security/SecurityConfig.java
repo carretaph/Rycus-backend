@@ -49,7 +49,6 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // 🔥 PERMITIR TODO (DEV)
         config.setAllowedOriginPatterns(List.of("*"));
 
         config.setAllowedMethods(List.of(
@@ -64,6 +63,7 @@ public class SecurityConfig {
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
+
         return source;
     }
 
@@ -77,12 +77,15 @@ public class SecurityConfig {
                 .authenticationProvider(authenticationProvider())
                 .authorizeHttpRequests(auth -> auth
 
+                        // =========================================================
+                        // PUBLIC ROUTES
+                        // =========================================================
                         .requestMatchers(
                                 "/",
                                 "/ping",
                                 "/auth/**",
                                 "/public/**",
-                                "/billing/**", // 🔥 AQUI ESTA EL FIX
+                                "/billing/**",
                                 "/error"
                         ).permitAll()
 
@@ -93,9 +96,18 @@ public class SecurityConfig {
                                 "/actuator/info/**"
                         ).permitAll()
 
+                        // =========================================================
+                        // PUBLIC GET ROUTES
+                        // =========================================================
                         .requestMatchers(HttpMethod.GET, "/posts/feed", "/posts/feed/**").permitAll()
 
-                        // 🔒 PROTEGIDOS
+                        // ✅ Public user search endpoints
+                        .requestMatchers(HttpMethod.GET, "/users/search").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/users/search-referrals/advanced").permitAll()
+
+                        // =========================================================
+                        // PROTECTED ROUTES
+                        // =========================================================
                         .requestMatchers("/posts/**").authenticated()
                         .requestMatchers("/customers/**").authenticated()
                         .requestMatchers("/reviews/**").authenticated()
