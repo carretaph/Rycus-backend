@@ -6,6 +6,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -21,22 +22,32 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
     private final AppUserDetailsService appUserDetailsService;
 
-    public SecurityConfig(JwtAuthFilter jwtAuthFilter, AppUserDetailsService appUserDetailsService) {
+    public SecurityConfig(
+            JwtAuthFilter jwtAuthFilter,
+            AppUserDetailsService appUserDetailsService
+    ) {
         this.jwtAuthFilter = jwtAuthFilter;
         this.appUserDetailsService = appUserDetailsService;
+
         System.out.println("✅ Loaded SecurityConfig (JWT enabled)");
     }
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+
+        DaoAuthenticationProvider provider =
+                new DaoAuthenticationProvider();
+
         provider.setUserDetailsService(appUserDetailsService);
+
         provider.setPasswordEncoder(passwordEncoder());
+
         return provider;
     }
 
@@ -47,34 +58,54 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+
         CorsConfiguration config = new CorsConfiguration();
 
         config.setAllowedOriginPatterns(List.of("*"));
 
         config.setAllowedMethods(List.of(
-                "GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "OPTIONS",
+                "PATCH"
         ));
 
         config.setAllowedHeaders(List.of("*"));
+
         config.setExposedHeaders(List.of("Authorization"));
 
         config.setAllowCredentials(false);
+
         config.setMaxAge(3600L);
 
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
         source.registerCorsConfiguration("/**", config);
 
         return source;
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(
+            HttpSecurity http
+    ) throws Exception {
 
         http
                 .cors(Customizer.withDefaults())
+
                 .csrf(csrf -> csrf.disable())
-                .sessionManagement(sess -> sess.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+                .sessionManagement(sess ->
+                        sess.sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS
+                        )
+                )
+
                 .authenticationProvider(authenticationProvider())
+
                 .authorizeHttpRequests(auth -> auth
 
                         // =========================================================
@@ -99,26 +130,61 @@ public class SecurityConfig {
                         // =========================================================
                         // PUBLIC GET ROUTES
                         // =========================================================
-                        .requestMatchers(HttpMethod.GET, "/posts/feed", "/posts/feed/**").permitAll()
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/posts/feed",
+                                "/posts/feed/**"
+                        ).permitAll()
 
-                        // ✅ Public user search endpoints
-                        .requestMatchers(HttpMethod.GET, "/users/search").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/users/search-referrals/advanced").permitAll()
+                        // =========================================================
+                        // USERS PUBLIC SEARCH
+                        // =========================================================
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/users/search"
+                        ).permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/users/search-referrals/advanced"
+                        ).permitAll()
+
+                        // =========================================================
+                        // TEMP ADMIN TEST
+                        // =========================================================
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/users/all"
+                        ).permitAll()
+
+                        // =========================================================
+                        // ADMIN ROUTES
+                        // =========================================================
+                        .requestMatchers("/admin/**")
+                        .hasRole("ADMIN")
 
                         // =========================================================
                         // PROTECTED ROUTES
                         // =========================================================
                         .requestMatchers("/posts/**").authenticated()
+
                         .requestMatchers("/customers/**").authenticated()
+
                         .requestMatchers("/reviews/**").authenticated()
+
                         .requestMatchers("/messages/**").authenticated()
+
                         .requestMatchers("/users/**").authenticated()
+
                         .requestMatchers("/connections/**").authenticated()
 
                         .anyRequest().authenticated()
                 );
 
-        http.addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+        http.addFilterBefore(
+                jwtAuthFilter,
+                UsernamePasswordAuthenticationFilter.class
+        );
 
         return http.build();
     }

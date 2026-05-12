@@ -81,8 +81,10 @@ public class UserController {
      * =========================================================
      */
     @PutMapping("/me")
-    public ResponseEntity<SafeUserDto> updateMe(Authentication authentication,
-                                                @RequestBody UpdateMeRequest body) {
+    public ResponseEntity<SafeUserDto> updateMe(
+            Authentication authentication,
+            @RequestBody UpdateMeRequest body
+    ) {
 
         if (authentication == null || authentication.getName() == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
@@ -95,15 +97,23 @@ public class UserController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         if (body != null) {
+
             if (body.fullName != null) user.setFullName(body.fullName.trim());
+
             if (body.phone != null) user.setPhone(body.phone.trim());
+
             if (body.avatarUrl != null) user.setAvatarUrl(body.avatarUrl.trim());
+
             if (body.businessName != null) user.setBusinessName(body.businessName.trim());
+
             if (body.industry != null) user.setIndustry(body.industry.trim());
+
             if (body.city != null) user.setCity(body.city.trim());
+
             if (body.state != null) user.setState(body.state.trim());
 
             if (body.offersReferralFee != null) {
+
                 user.setOffersReferralFee(body.offersReferralFee);
 
                 if (!body.offersReferralFee) {
@@ -113,9 +123,17 @@ public class UserController {
                 }
             }
 
-            if (body.referralFeeType != null) user.setReferralFeeType(body.referralFeeType.trim());
-            if (body.referralFeeValue != null) user.setReferralFeeValue(body.referralFeeValue);
-            if (body.referralFeeNotes != null) user.setReferralFeeNotes(body.referralFeeNotes.trim());
+            if (body.referralFeeType != null) {
+                user.setReferralFeeType(body.referralFeeType.trim());
+            }
+
+            if (body.referralFeeValue != null) {
+                user.setReferralFeeValue(body.referralFeeValue);
+            }
+
+            if (body.referralFeeNotes != null) {
+                user.setReferralFeeNotes(body.referralFeeNotes.trim());
+            }
         }
 
         userRepository.save(user);
@@ -129,15 +147,23 @@ public class UserController {
      * =========================================================
      */
     @GetMapping("/by-email")
-    public ResponseEntity<SafeUserDto> byEmail(@RequestParam("email") String email) {
+    public ResponseEntity<SafeUserDto> byEmail(
+            @RequestParam("email") String email
+    ) {
 
         if (email == null || email.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "email is required");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "email is required"
+            );
         }
 
         User user = userRepository
                 .findByEmailIgnoreCase(email.trim())
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "User not found"
+                ));
 
         return ResponseEntity.ok(SafeUserDto.from(user));
     }
@@ -149,11 +175,16 @@ public class UserController {
      * =========================================================
      */
     @GetMapping("/{id:\\d+}")
-    public ResponseEntity<SafeUserDto> byId(@PathVariable("id") Long id) {
+    public ResponseEntity<SafeUserDto> byId(
+            @PathVariable("id") Long id
+    ) {
 
         User user = userRepository
                 .findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "User not found"
+                ));
 
         return ResponseEntity.ok(SafeUserDto.from(user));
     }
@@ -162,7 +193,6 @@ public class UserController {
      * =========================================================
      * GET /users/search?q=...
      * GET /users/search?query=...
-     * Búsqueda liviana por nombre/email
      * =========================================================
      */
     @GetMapping("/search")
@@ -170,7 +200,9 @@ public class UserController {
             @RequestParam(value = "q", required = false) String q,
             @RequestParam(value = "query", required = false) String query
     ) {
+
         String raw = (q != null && !q.isBlank()) ? q : query;
+
         String term = (raw == null) ? "" : raw.trim();
 
         if (term.length() < 2) {
@@ -178,17 +210,13 @@ public class UserController {
         }
 
         List<UserMiniDto> results = userRepository.searchMini(term);
+
         return ResponseEntity.ok(results);
     }
 
     /**
      * =========================================================
      * GET /users/search-referrals/advanced
-     *
-     * Busca usuarios por:
-     * - nameEmail: fullName/email
-     * - industry: industry
-     * - location: city/state
      * =========================================================
      */
     @GetMapping("/search-referrals/advanced")
@@ -199,10 +227,16 @@ public class UserController {
     ) {
 
         String cleanNameEmail = clean(nameEmail);
+
         String cleanIndustry = clean(industry);
+
         String cleanLocation = clean(location);
 
-        if (cleanNameEmail.isBlank() && cleanIndustry.isBlank() && cleanLocation.isBlank()) {
+        if (
+                cleanNameEmail.isBlank()
+                        && cleanIndustry.isBlank()
+                        && cleanLocation.isBlank()
+        ) {
             return ResponseEntity.ok(List.of());
         }
 
@@ -216,6 +250,28 @@ public class UserController {
         return ResponseEntity.ok(results);
     }
 
+    /**
+     * =========================================================
+     * TEMP ADMIN ENDPOINT
+     * GET /users/all
+     * =========================================================
+     */
+    @GetMapping("/all")
+    public ResponseEntity<List<SafeUserDto>> allUsers() {
+
+        List<SafeUserDto> users = userRepository.findAll()
+                .stream()
+                .map(SafeUserDto::from)
+                .toList();
+
+        return ResponseEntity.ok(users);
+    }
+
+    /**
+     * =========================================================
+     * TEST
+     * =========================================================
+     */
     @GetMapping("/me-test")
     public ResponseEntity<String> testDeploy() {
         return ResponseEntity.ok("NEW VERSION DEPLOYED ✅");
