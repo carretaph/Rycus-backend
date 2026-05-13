@@ -10,6 +10,7 @@ public class AdminUserDto {
     private String fullName;
     private String email;
     private String role;
+    private String accountStatus;
     private String businessName;
     private String industry;
     private String city;
@@ -26,6 +27,7 @@ public class AdminUserDto {
         dto.fullName = user.getFullName();
         dto.email = user.getEmail();
         dto.role = user.getRole();
+        dto.accountStatus = user.getAccountStatus();
         dto.businessName = user.getBusinessName();
         dto.industry = user.getIndustry();
         dto.city = user.getCity();
@@ -42,6 +44,7 @@ public class AdminUserDto {
     public String getFullName() { return fullName; }
     public String getEmail() { return email; }
     public String getRole() { return role; }
+    public String getAccountStatus() { return accountStatus; }
     public String getBusinessName() { return businessName; }
     public String getIndustry() { return industry; }
     public String getCity() { return city; }

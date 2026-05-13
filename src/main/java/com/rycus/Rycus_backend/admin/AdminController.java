@@ -1,10 +1,9 @@
 package com.rycus.Rycus_backend.admin;
 
 import com.rycus.Rycus_backend.repository.UserRepository;
+import com.rycus.Rycus_backend.user.User;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -51,5 +50,31 @@ public class AdminController {
                 .stream()
                 .map(AdminUserDto::from)
                 .toList();
+    }
+
+    @PatchMapping("/users/{id}/status")
+    public AdminUserDto updateUserStatus(
+            @PathVariable Long id,
+            @RequestParam String status
+    ) {
+
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        String normalized = status.toUpperCase();
+
+        if (
+                !normalized.equals("ACTIVE") &&
+                        !normalized.equals("SUSPENDED") &&
+                        !normalized.equals("BANNED")
+        ) {
+            throw new RuntimeException("Invalid status");
+        }
+
+        user.setAccountStatus(normalized);
+
+        userRepository.save(user);
+
+        return AdminUserDto.from(user);
     }
 }

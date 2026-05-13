@@ -21,9 +21,6 @@ import java.time.Instant;
 )
 public class User {
 
-    // =========================================================
-    // ID / CORE
-    // =========================================================
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -39,9 +36,9 @@ public class User {
 
     private String role; // USER, ADMIN
 
-    // =========================================================
-    // PROFILE
-    // =========================================================
+    @Column(name = "account_status", length = 20)
+    private String accountStatus = "ACTIVE";
+
     private String phone;
 
     @Column(name = "business_name")
@@ -51,54 +48,28 @@ public class User {
     private String city;
     private String state;
 
-    // TEXT en Postgres (no CLOB)
     @Column(name = "avatar_url", columnDefinition = "TEXT")
     private String avatarUrl;
 
-    // =========================================================
-    // REFERRAL FEE (PUBLIC)
-    // =========================================================
     @Column(name = "offers_referral_fee", nullable = false)
     private Boolean offersReferralFee = false;
 
-    // "FLAT" | "PERCENT"
     @Column(name = "referral_fee_type", length = 10)
     private String referralFeeType;
 
     @Column(name = "referral_fee_value", precision = 10, scale = 2)
     private BigDecimal referralFeeValue;
 
-    // ✅ 255 suele quedarse corto: mejor 500
     @Column(name = "referral_fee_notes", length = 500)
     private String referralFeeNotes;
 
-    // =========================================================
-    // CREATED AT
-    // =========================================================
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    @PrePersist
-    public void prePersist() {
-        if (this.createdAt == null) {
-            this.createdAt = Instant.now();
-        }
-        if (this.planType == null) {
-            this.planType = PlanType.FREE_TRIAL;
-        }
-        if (this.offersReferralFee == null) {
-            this.offersReferralFee = false;
-        }
-    }
-
-    // =========================================================
-    // PLAN / BILLING (CORE)
-    // =========================================================
     @Enumerated(EnumType.STRING)
     @Column(name = "plan_type", length = 30, nullable = false)
     private PlanType planType = PlanType.FREE_TRIAL;
 
-    // Stripe status real: trialing, active, past_due, canceled, unpaid, etc
     @Column(name = "subscription_status", length = 40)
     private String subscriptionStatus;
 
@@ -108,46 +79,53 @@ public class User {
     @Column(name = "subscription_ends_at")
     private Instant subscriptionEndsAt;
 
-    // 👉 Fuente de verdad del acceso
     @Column(name = "access_ends_at")
     private Instant accessEndsAt;
 
-    // Free months ganados por milestones / referrals
     @Column(name = "free_months_balance", nullable = false)
     private int freeMonthsBalance = 0;
 
-    // =========================================================
-    // REFERRALS
-    // =========================================================
     @Column(name = "referral_code", length = 40, unique = true)
     private String referralCode;
 
     @Column(name = "referred_by_email", length = 180)
     private String referredByEmail;
 
-    // =========================================================
-    // STRIPE
-    // =========================================================
     @Column(name = "stripe_customer_id", length = 80)
     private String stripeCustomerId;
 
     @Column(name = "stripe_subscription_id", length = 80)
     private String stripeSubscriptionId;
 
-    // =========================================================
-    // CONSTRUCTORS
-    // =========================================================
     public User() {}
 
-    // =========================================================
-    // BUSINESS LOGIC
-    // =========================================================
+    @PrePersist
+    public void prePersist() {
+        if (this.createdAt == null) {
+            this.createdAt = Instant.now();
+        }
+
+        if (this.planType == null) {
+            this.planType = PlanType.FREE_TRIAL;
+        }
+
+        if (this.offersReferralFee == null) {
+            this.offersReferralFee = false;
+        }
+
+        if (this.accountStatus == null || this.accountStatus.isBlank()) {
+            this.accountStatus = "ACTIVE";
+        }
+    }
+
     public boolean isLifetimeFree() {
         return this.planType == PlanType.FREE_LIFETIME;
     }
 
-    /** Fuente de verdad para el backend */
     public boolean hasActiveAccess() {
+        if ("SUSPENDED".equalsIgnoreCase(accountStatus)) return false;
+        if ("BANNED".equalsIgnoreCase(accountStatus)) return false;
+
         if (isLifetimeFree()) return true;
 
         boolean stripeOk =
@@ -160,9 +138,6 @@ public class User {
         return stripeOk || timeOk;
     }
 
-    // =========================================================
-    // GETTERS / SETTERS
-    // =========================================================
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -177,6 +152,9 @@ public class User {
 
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
+
+    public String getAccountStatus() { return accountStatus; }
+    public void setAccountStatus(String accountStatus) { this.accountStatus = accountStatus; }
 
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
