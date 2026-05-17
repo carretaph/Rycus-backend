@@ -137,7 +137,7 @@ public class SecurityConfig {
                         ).permitAll()
 
                         // =========================================================
-                        // USERS PUBLIC SEARCH
+                        // USERS PUBLIC SEARCH / PUBLIC PROFILE MEDIA
                         // =========================================================
                         .requestMatchers(
                                 HttpMethod.GET,
@@ -147,6 +147,11 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/users/search-referrals/advanced"
+                        ).permitAll()
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/users/*/photos"
                         ).permitAll()
 
                         // =========================================================

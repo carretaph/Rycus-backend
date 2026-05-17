@@ -1,5 +1,10 @@
 package com.rycus.Rycus_backend.user;
 
+import com.rycus.Rycus_backend.post.Post;
+import com.rycus.Rycus_backend.post.PostImage;
+import com.rycus.Rycus_backend.post.UserPhotoDto;
+import com.rycus.Rycus_backend.repository.PostImageRepository;
+import com.rycus.Rycus_backend.repository.PostRepository;
 import com.rycus.Rycus_backend.repository.UserRepository;
 import com.rycus.Rycus_backend.user.dto.SafeUserDto;
 import com.rycus.Rycus_backend.user.dto.UserMiniDto;
@@ -19,14 +24,22 @@ import java.util.List;
 public class UserController {
 
     private final UserRepository userRepository;
+    private final PostRepository postRepository;
+    private final PostImageRepository postImageRepository;
+    private final UserService userService;
 
-    public UserController(UserRepository userRepository) {
+    public UserController(
+            UserRepository userRepository,
+            PostRepository postRepository,
+            PostImageRepository postImageRepository,
+            UserService userService
+    ) {
         this.userRepository = userRepository;
+        this.postRepository = postRepository;
+        this.postImageRepository = postImageRepository;
+        this.userService = userService;
     }
 
-    // =========================
-    // DTO para update /users/me
-    // =========================
     public static class UpdateMeRequest {
         public String fullName;
         public String phone;
@@ -42,11 +55,6 @@ public class UserController {
         public String referralFeeNotes;
     }
 
-    /**
-     * =========================================================
-     * GET /users/me   (USA EL JWT)
-     * =========================================================
-     */
     @GetMapping("/me")
     public ResponseEntity<SafeUserDto> me(Authentication authentication) {
 
@@ -66,6 +74,7 @@ public class UserController {
             if (dto.getPlanType() == null && user.getPlanType() != null) {
                 dto.setPlanType(user.getPlanType().name());
             }
+
             if (dto.getSubscriptionStatus() == null && user.getSubscriptionStatus() != null) {
                 dto.setSubscriptionStatus(user.getSubscriptionStatus());
             }
@@ -74,12 +83,6 @@ public class UserController {
         return ResponseEntity.ok(dto);
     }
 
-    /**
-     * =========================================================
-     * PUT /users/me   (USA EL JWT)
-     * Actualiza perfil + referral fee
-     * =========================================================
-     */
     @PutMapping("/me")
     public ResponseEntity<SafeUserDto> updateMe(
             Authentication authentication,
@@ -97,23 +100,15 @@ public class UserController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         if (body != null) {
-
             if (body.fullName != null) user.setFullName(body.fullName.trim());
-
             if (body.phone != null) user.setPhone(body.phone.trim());
-
             if (body.avatarUrl != null) user.setAvatarUrl(body.avatarUrl.trim());
-
             if (body.businessName != null) user.setBusinessName(body.businessName.trim());
-
             if (body.industry != null) user.setIndustry(body.industry.trim());
-
             if (body.city != null) user.setCity(body.city.trim());
-
             if (body.state != null) user.setState(body.state.trim());
 
             if (body.offersReferralFee != null) {
-
                 user.setOffersReferralFee(body.offersReferralFee);
 
                 if (!body.offersReferralFee) {
@@ -141,60 +136,71 @@ public class UserController {
         return ResponseEntity.ok(SafeUserDto.from(user));
     }
 
-    /**
-     * =========================================================
-     * GET /users/by-email?email=...
-     * =========================================================
-     */
     @GetMapping("/by-email")
     public ResponseEntity<SafeUserDto> byEmail(
             @RequestParam("email") String email
     ) {
 
         if (email == null || email.isBlank()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "email is required"
-            );
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "email is required");
         }
 
         User user = userRepository
                 .findByEmailIgnoreCase(email.trim())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "User not found"
-                ));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         return ResponseEntity.ok(SafeUserDto.from(user));
     }
 
-    /**
-     * =========================================================
-     * GET /users/{id}
-     * Regex para que NO choque con /me
-     * =========================================================
-     */
     @GetMapping("/{id:\\d+}")
-    public ResponseEntity<SafeUserDto> byId(
+    public ResponseEntity<UserProfileDto> byId(
+            @PathVariable("id") Long id
+    ) {
+        UserProfileDto profile = userService.getUserProfile(id);
+        return ResponseEntity.ok(profile);
+    }
+
+    @GetMapping("/{id:\\d+}/photos")
+    public ResponseEntity<List<UserPhotoDto>> userPhotos(
             @PathVariable("id") Long id
     ) {
 
         User user = userRepository
                 .findById(id)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "User not found"
-                ));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        return ResponseEntity.ok(SafeUserDto.from(user));
+        String email = user.getEmail();
+
+        List<Post> posts = postRepository.findByAuthorEmailIgnoreCaseOrderByCreatedAtDesc(email);
+
+        if (posts.isEmpty()) {
+            return ResponseEntity.ok(List.of());
+        }
+
+        List<Long> postIds = posts.stream()
+                .map(Post::getId)
+                .toList();
+
+        List<PostImage> images = postImageRepository.findByPostIdIn(postIds);
+
+        List<UserPhotoDto> photos = images.stream()
+                .map(img -> {
+                    Post post = posts.stream()
+                            .filter(p -> p.getId().equals(img.getPostId()))
+                            .findFirst()
+                            .orElse(null);
+
+                    return new UserPhotoDto(
+                            img.getPostId(),
+                            img.getImageUrl(),
+                            post == null ? null : post.getCreatedAt()
+                    );
+                })
+                .toList();
+
+        return ResponseEntity.ok(photos);
     }
 
-    /**
-     * =========================================================
-     * GET /users/search?q=...
-     * GET /users/search?query=...
-     * =========================================================
-     */
     @GetMapping("/search")
     public ResponseEntity<List<UserMiniDto>> search(
             @RequestParam(value = "q", required = false) String q,
@@ -214,11 +220,6 @@ public class UserController {
         return ResponseEntity.ok(results);
     }
 
-    /**
-     * =========================================================
-     * GET /users/search-referrals/advanced
-     * =========================================================
-     */
     @GetMapping("/search-referrals/advanced")
     public ResponseEntity<List<UserSearchDto>> searchReferralsAdvanced(
             @RequestParam(required = false) String nameEmail,
@@ -227,9 +228,7 @@ public class UserController {
     ) {
 
         String cleanNameEmail = clean(nameEmail);
-
         String cleanIndustry = clean(industry);
-
         String cleanLocation = clean(location);
 
         if (
@@ -250,12 +249,6 @@ public class UserController {
         return ResponseEntity.ok(results);
     }
 
-    /**
-     * =========================================================
-     * TEMP ADMIN ENDPOINT
-     * GET /users/all
-     * =========================================================
-     */
     @GetMapping("/all")
     public ResponseEntity<List<SafeUserDto>> allUsers() {
 
@@ -267,11 +260,6 @@ public class UserController {
         return ResponseEntity.ok(users);
     }
 
-    /**
-     * =========================================================
-     * TEST
-     * =========================================================
-     */
     @GetMapping("/me-test")
     public ResponseEntity<String> testDeploy() {
         return ResponseEntity.ok("NEW VERSION DEPLOYED ✅");
