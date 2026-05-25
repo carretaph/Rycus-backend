@@ -97,12 +97,12 @@ public class CustomerService {
             customer = customerRepository.findByEmailIgnoreCase(prepared.getEmail())
                     .map(existing -> merge(existing, prepared))
                     .map(c -> {
-                        geocodeIfPossible(c);
+                        // geocodeIfPossible(c);
                         return customerRepository.save(c);
                     })
                     .orElseGet(() -> {
                         prepared.setCreatedByUserId(creatorUserId);
-                        geocodeIfPossible(prepared);
+                        // geocodeIfPossible(prepared);
                         return customerRepository.save(prepared);
                     });
 
@@ -111,7 +111,7 @@ public class CustomerService {
 
             if (dup.isPresent()) {
                 customer = merge(dup.get(), prepared);
-                geocodeIfPossible(customer);
+                // geocodeIfPossible(customer);
                 customer = customerRepository.save(customer);
             } else {
                 prepared.setCreatedByUserId(creatorUserId);
