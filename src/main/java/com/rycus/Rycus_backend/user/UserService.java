@@ -117,14 +117,11 @@ public class UserService {
             user.setRole("USER");
         }
 
-        // trial 30 días
-        Instant now = Instant.now();
-        Instant trialEnd = now.plus(30, ChronoUnit.DAYS);
-
-        user.setPlanType(PlanType.FREE_TRIAL);
-        user.setTrialEndsAt(trialEnd);
-        user.setSubscriptionEndsAt(trialEnd);
-        user.setFreeMonthsBalance(0);
+        // FREE LIFETIME (launch phase)
+        user.setPlanType(PlanType.FREE_LIFETIME);
+        user.setTrialEndsAt(null);
+        user.setSubscriptionEndsAt(null);
+        user.setFreeMonthsBalance(999);
 
         // referral code
         user.setReferralCode(generateUniqueReferralCode());
