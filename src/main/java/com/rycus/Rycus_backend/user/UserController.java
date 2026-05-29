@@ -136,6 +136,24 @@ public class UserController {
         return ResponseEntity.ok(SafeUserDto.from(user));
     }
 
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteMe(Authentication authentication) {
+
+        if (authentication == null || authentication.getName() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
+
+        String email = authentication.getName();
+
+        User user = userRepository
+                .findByEmailIgnoreCase(email.trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        userRepository.delete(user);
+
+        return ResponseEntity.noContent().build();
+    }
+
     @GetMapping("/by-email")
     public ResponseEntity<SafeUserDto> byEmail(
             @RequestParam("email") String email
