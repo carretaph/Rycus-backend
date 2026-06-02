@@ -284,11 +284,18 @@ public class PostService {
                 .map(PostImage::getImageUrl)
                 .toList();
 
-        String avatarUrl = userRepo.findByEmailIgnoreCase(post.getAuthorEmail())
-                .map(User::getAvatarUrl)
+        User author = userRepo.findByEmailIgnoreCase(post.getAuthorEmail())
                 .orElse(null);
 
-        return new PostDto(
+        String avatarUrl = author != null
+                ? author.getAvatarUrl()
+                : null;
+
+        Long authorId = author != null
+                ? author.getId()
+                : null;
+
+        PostDto dto = new PostDto(
                 post.getId(),
                 post.getText(),
                 post.getAuthorEmail(),
@@ -300,6 +307,10 @@ public class PostService {
                 commentCount,
                 imageUrls
         );
+
+        dto.setAuthorId(authorId);
+
+        return dto;
     }
 
     // =====================================================
