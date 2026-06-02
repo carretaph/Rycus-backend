@@ -26,18 +26,21 @@ public class UserController {
     private final UserRepository userRepository;
     private final PostRepository postRepository;
     private final PostImageRepository postImageRepository;
+    private final com.rycus.Rycus_backend.repository.UserBlockRepository userBlockRepository;
     private final UserService userService;
 
     public UserController(
             UserRepository userRepository,
             PostRepository postRepository,
             PostImageRepository postImageRepository,
-            UserService userService
+            UserService userService,
+            com.rycus.Rycus_backend.repository.UserBlockRepository userBlockRepository
     ) {
         this.userRepository = userRepository;
         this.postRepository = postRepository;
         this.postImageRepository = postImageRepository;
         this.userService = userService;
+        this.userBlockRepository = userBlockRepository;
     }
 
     public static class UpdateMeRequest {
