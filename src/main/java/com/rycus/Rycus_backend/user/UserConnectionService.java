@@ -1,5 +1,6 @@
 package com.rycus.Rycus_backend.user;
 
+import com.rycus.Rycus_backend.repository.UserBlockRepository;
 import com.rycus.Rycus_backend.repository.UserConnectionRepository;
 import com.rycus.Rycus_backend.repository.UserRepository;
 import org.springframework.stereotype.Service;
@@ -17,13 +18,16 @@ public class UserConnectionService {
 
     private final UserRepository userRepository;
     private final UserConnectionRepository connectionRepository;
+    private final UserBlockRepository userBlockRepository;
     private final EmailService emailService;
 
     public UserConnectionService(UserRepository userRepository,
                                  UserConnectionRepository connectionRepository,
+                                 UserBlockRepository userBlockRepository,
                                  EmailService emailService) {
         this.userRepository = userRepository;
         this.connectionRepository = connectionRepository;
+        this.userBlockRepository = userBlockRepository;
         this.emailService = emailService;
     }
 
@@ -62,6 +66,38 @@ public class UserConnectionService {
     }
 
     // =====================================
+    // Helper: verificar bloqueo entre dos usuarios
+    // =====================================
+    private boolean areUsersBlocked(User a, User b) {
+        if (a == null || b == null) return false;
+
+        return userBlockRepository.existsByBlockerAndBlocked(a, b)
+                || userBlockRepository.existsByBlockerAndBlocked(b, a);
+    }
+
+    // =====================================
+    // Helper: verificar si una conexión involucra usuarios bloqueados
+    // =====================================
+    private boolean isBlockedConnection(User currentUser, UserConnection connection) {
+        if (currentUser == null || connection == null) return false;
+
+        User requester = connection.getRequester();
+        User receiver = connection.getReceiver();
+
+        User other = null;
+
+        if (requester != null && requester.getId() != null
+                && requester.getId().equals(currentUser.getId())) {
+            other = receiver;
+        } else if (receiver != null && receiver.getId() != null
+                && receiver.getId().equals(currentUser.getId())) {
+            other = requester;
+        }
+
+        return areUsersBlocked(currentUser, other);
+    }
+
+    // =====================================
     // Enviar invitación
     // =====================================
     @Transactional
@@ -83,6 +119,16 @@ public class UserConnectionService {
 
         User toUser = userRepository.findByEmailIgnoreCase(to)
                 .orElseThrow(() -> new IllegalArgumentException("To user not found"));
+
+        boolean blocked =
+                userBlockRepository.existsByBlockerAndBlocked(fromUser, toUser)
+                        || userBlockRepository.existsByBlockerAndBlocked(toUser, fromUser);
+
+        if (blocked) {
+            throw new IllegalStateException(
+                    "Connection request not allowed because one user has blocked the other."
+            );
+        }
 
         // ¿ya existe conexión en alguna dirección?
         Optional<UserConnection> forward =
@@ -149,6 +195,7 @@ public class UserConnectionService {
 
         return allConnections.stream()
                 .filter(c -> c.getStatus() == ConnectionStatus.ACCEPTED)
+                .filter(c -> !isBlockedConnection(user, c))
                 .map(this::toDto)
                 .collect(Collectors.toList());
     }
@@ -173,7 +220,10 @@ public class UserConnectionService {
         List<UserConnection> pending =
                 connectionRepository.findByReceiverAndStatus(user, ConnectionStatus.PENDING);
 
-        return pending.stream().map(this::toDto).collect(Collectors.toList());
+        return pending.stream()
+                .filter(c -> !isBlockedConnection(user, c))
+                .map(this::toDto)
+                .collect(Collectors.toList());
     }
 
     // =====================================
@@ -196,7 +246,9 @@ public class UserConnectionService {
         List<UserConnection> pending =
                 connectionRepository.findByReceiverAndStatus(user, ConnectionStatus.PENDING);
 
-        return pending.size();
+        return pending.stream()
+                .filter(c -> !isBlockedConnection(user, c))
+                .count();
     }
 
     // =====================================
