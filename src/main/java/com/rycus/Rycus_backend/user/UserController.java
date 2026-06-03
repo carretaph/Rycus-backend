@@ -286,6 +286,83 @@ public class UserController {
         return ResponseEntity.ok("NEW VERSION DEPLOYED ✅");
     }
 
+
+    @PostMapping("/block/{id}")
+    public ResponseEntity<Void> blockUser(
+            @PathVariable("id") Long id,
+            Authentication authentication
+    ) {
+        if (authentication == null || authentication.getName() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
+
+        User blocker = userRepository
+                .findByEmailIgnoreCase(authentication.getName().trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Current user not found"));
+
+        User blocked = userRepository
+                .findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User to block not found"));
+
+        if (blocker.getId().equals(blocked.getId())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "You cannot block yourself");
+        }
+
+        boolean alreadyBlocked = userBlockRepository.existsByBlockerAndBlocked(blocker, blocked);
+
+        if (!alreadyBlocked) {
+            userBlockRepository.save(new UserBlock(blocker, blocked));
+        }
+
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/block/{id}")
+    public ResponseEntity<Void> unblockUser(
+            @PathVariable("id") Long id,
+            Authentication authentication
+    ) {
+        if (authentication == null || authentication.getName() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
+
+        User blocker = userRepository
+                .findByEmailIgnoreCase(authentication.getName().trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Current user not found"));
+
+        User blocked = userRepository
+                .findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User to unblock not found"));
+
+        userBlockRepository
+                .findByBlockerAndBlocked(blocker, blocked)
+                .ifPresent(userBlockRepository::delete);
+
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/block/{id}")
+    public ResponseEntity<Boolean> isUserBlocked(
+            @PathVariable("id") Long id,
+            Authentication authentication
+    ) {
+        if (authentication == null || authentication.getName() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
+
+        User blocker = userRepository
+                .findByEmailIgnoreCase(authentication.getName().trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Current user not found"));
+
+        User blocked = userRepository
+                .findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        boolean blockedStatus = userBlockRepository.existsByBlockerAndBlocked(blocker, blocked);
+
+        return ResponseEntity.ok(blockedStatus);
+    }
+
     private String clean(String value) {
         return value == null ? "" : value.trim();
     }
