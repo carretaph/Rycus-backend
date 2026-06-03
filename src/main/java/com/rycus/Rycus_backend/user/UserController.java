@@ -17,6 +17,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/users")
@@ -225,7 +226,8 @@ public class UserController {
     @GetMapping("/search")
     public ResponseEntity<List<UserMiniDto>> search(
             @RequestParam(value = "q", required = false) String q,
-            @RequestParam(value = "query", required = false) String query
+            @RequestParam(value = "query", required = false) String query,
+            Authentication authentication
     ) {
 
         String raw = (q != null && !q.isBlank()) ? q : query;
@@ -236,7 +238,12 @@ public class UserController {
             return ResponseEntity.ok(List.of());
         }
 
-        List<UserMiniDto> results = userRepository.searchMini(term);
+        User viewer = getAuthenticatedUserOrNull(authentication);
+
+        List<UserMiniDto> results = userRepository.searchMini(term)
+                .stream()
+                .filter(u -> canViewerSeeUser(viewer, u.getId()))
+                .toList();
 
         return ResponseEntity.ok(results);
     }
@@ -245,7 +252,8 @@ public class UserController {
     public ResponseEntity<List<UserSearchDto>> searchReferralsAdvanced(
             @RequestParam(required = false) String nameEmail,
             @RequestParam(required = false) String industry,
-            @RequestParam(required = false) String location
+            @RequestParam(required = false) String location,
+            Authentication authentication
     ) {
 
         String cleanNameEmail = clean(nameEmail);
@@ -260,12 +268,17 @@ public class UserController {
             return ResponseEntity.ok(List.of());
         }
 
+        User viewer = getAuthenticatedUserOrNull(authentication);
+
         List<UserSearchDto> results =
                 userRepository.searchWithReferralFeeAdvanced(
-                        cleanNameEmail,
-                        cleanIndustry,
-                        cleanLocation
-                );
+                                cleanNameEmail,
+                                cleanIndustry,
+                                cleanLocation
+                        )
+                        .stream()
+                        .filter(u -> canViewerSeeUser(viewer, u.getId()))
+                        .toList();
 
         return ResponseEntity.ok(results);
     }
@@ -361,6 +374,47 @@ public class UserController {
         boolean blockedStatus = userBlockRepository.existsByBlockerAndBlocked(blocker, blocked);
 
         return ResponseEntity.ok(blockedStatus);
+    }
+
+
+    private User getAuthenticatedUserOrNull(Authentication authentication) {
+        if (authentication == null || authentication.getName() == null) {
+            return null;
+        }
+
+        return userRepository
+                .findByEmailIgnoreCase(authentication.getName().trim())
+                .orElse(null);
+    }
+
+    private boolean canViewerSeeUser(User viewer, Long targetUserId) {
+        if (targetUserId == null) {
+            return false;
+        }
+
+        if (viewer == null || viewer.getId() == null) {
+            return true;
+        }
+
+        if (Objects.equals(viewer.getId(), targetUserId)) {
+            return true;
+        }
+
+        User target = userRepository
+                .findById(targetUserId)
+                .orElse(null);
+
+        if (target == null) {
+            return false;
+        }
+
+        boolean viewerBlockedTarget =
+                userBlockRepository.existsByBlockerAndBlocked(viewer, target);
+
+        boolean targetBlockedViewer =
+                userBlockRepository.existsByBlockerAndBlocked(target, viewer);
+
+        return !viewerBlockedTarget && !targetBlockedViewer;
     }
 
     private String clean(String value) {
