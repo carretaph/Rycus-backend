@@ -23,6 +23,7 @@ public class PostService {
     private final UserRepository userRepo;
     private final PostCommentRepository commentRepo;
     private final PostImageRepository imageRepo;
+    private final UserBlockRepository userBlockRepo;
     private final Cloudinary cloudinary;
 
     public PostService(
@@ -31,6 +32,7 @@ public class PostService {
             UserRepository userRepo,
             PostCommentRepository commentRepo,
             PostImageRepository imageRepo,
+            UserBlockRepository userBlockRepo,
             Cloudinary cloudinary
     ) {
         this.repo = repo;
@@ -38,6 +40,7 @@ public class PostService {
         this.userRepo = userRepo;
         this.commentRepo = commentRepo;
         this.imageRepo = imageRepo;
+        this.userBlockRepo = userBlockRepo;
         this.cloudinary = cloudinary;
     }
 
@@ -116,8 +119,13 @@ public class PostService {
         int safeLimit = Math.max(1, Math.min(limit, 100));
         String viewer = viewerEmail == null ? "" : viewerEmail.trim();
 
+        User viewerUser = StringUtils.hasText(viewer)
+                ? userRepo.findByEmailIgnoreCase(viewer).orElse(null)
+                : null;
+
         return repo.findAllByOrderByCreatedAtDesc(PageRequest.of(0, safeLimit))
                 .stream()
+                .filter(p -> canViewerSeePost(viewerUser, p))
                 .map(p -> {
                     boolean liked = StringUtils.hasText(viewer)
                             && likeRepo.existsByPostAndUserEmail(p, viewer);
@@ -269,6 +277,35 @@ public class PostService {
 
         PostComment saved = commentRepo.save(new PostComment(postId, text, email, name));
         return toCommentDto(saved);
+    }
+
+
+    // =====================================================
+    // HELPER: BLOCK FILTER
+    // =====================================================
+    private boolean canViewerSeePost(User viewerUser, Post post) {
+        if (viewerUser == null || post == null || !StringUtils.hasText(post.getAuthorEmail())) {
+            return true;
+        }
+
+        User author = userRepo.findByEmailIgnoreCase(post.getAuthorEmail())
+                .orElse(null);
+
+        if (author == null || author.getId() == null || viewerUser.getId() == null) {
+            return true;
+        }
+
+        if (viewerUser.getId().equals(author.getId())) {
+            return true;
+        }
+
+        boolean viewerBlockedAuthor =
+                userBlockRepo.existsByBlockerAndBlocked(viewerUser, author);
+
+        boolean authorBlockedViewer =
+                userBlockRepo.existsByBlockerAndBlocked(author, viewerUser);
+
+        return !viewerBlockedAuthor && !authorBlockedViewer;
     }
 
     // =====================================================
