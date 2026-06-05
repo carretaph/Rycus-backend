@@ -1,5 +1,6 @@
 package com.rycus.Rycus_backend.user;
 
+import com.cloudinary.Cloudinary;
 import com.rycus.Rycus_backend.post.Post;
 import com.rycus.Rycus_backend.post.PostImage;
 import com.rycus.Rycus_backend.post.UserPhotoDto;
@@ -13,10 +14,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 @RestController
@@ -28,6 +32,7 @@ public class UserController {
     private final PostRepository postRepository;
     private final PostImageRepository postImageRepository;
     private final com.rycus.Rycus_backend.repository.UserBlockRepository userBlockRepository;
+    private final Cloudinary cloudinary;
     private final UserService userService;
 
     public UserController(
@@ -35,13 +40,15 @@ public class UserController {
             PostRepository postRepository,
             PostImageRepository postImageRepository,
             UserService userService,
-            com.rycus.Rycus_backend.repository.UserBlockRepository userBlockRepository
+            com.rycus.Rycus_backend.repository.UserBlockRepository userBlockRepository,
+            Cloudinary cloudinary
     ) {
         this.userRepository = userRepository;
         this.postRepository = postRepository;
         this.postImageRepository = postImageRepository;
         this.userService = userService;
         this.userBlockRepository = userBlockRepository;
+        this.cloudinary = cloudinary;
     }
 
     public static class UpdateMeRequest {
@@ -138,6 +145,66 @@ public class UserController {
         userRepository.save(user);
 
         return ResponseEntity.ok(SafeUserDto.from(user));
+    }
+
+
+    @PostMapping(value = "/me/avatar", consumes = "multipart/form-data")
+    public ResponseEntity<SafeUserDto> uploadMyAvatar(
+            Authentication authentication,
+            @RequestParam("file") MultipartFile file
+    ) {
+        if (authentication == null || authentication.getName() == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+        }
+
+        if (file == null || file.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Image file is required");
+        }
+
+        if (file.getSize() > 5 * 1024 * 1024) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Image is too large. Max 5MB.");
+        }
+
+        String contentType = file.getContentType() == null ? "" : file.getContentType().toLowerCase();
+        if (!contentType.startsWith("image/")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only image files are allowed");
+        }
+
+        User user = userRepository
+                .findByEmailIgnoreCase(authentication.getName().trim())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        try {
+            Map<?, ?> uploadResult = cloudinary.uploader().upload(
+                    file.getBytes(),
+                    Map.of(
+                            "folder", "rycus/avatars",
+                            "resource_type", "image",
+                            "public_id", "user_" + user.getId(),
+                            "overwrite", true
+                    )
+            );
+
+            Object secureUrl = uploadResult.get("secure_url");
+
+            if (secureUrl == null || secureUrl.toString().isBlank()) {
+                throw new ResponseStatusException(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        "Cloudinary did not return secure_url"
+                );
+            }
+
+            user.setAvatarUrl(secureUrl.toString());
+            User saved = userRepository.save(user);
+
+            return ResponseEntity.ok(SafeUserDto.from(saved));
+
+        } catch (IOException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to upload avatar image"
+            );
+        }
     }
 
     @DeleteMapping("/me")
