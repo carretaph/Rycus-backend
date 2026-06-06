@@ -16,26 +16,24 @@ public class AuthController {
 
     private final UserService userService;
     private final JwtService jwtService;
-
-    // login directo contra DB
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final EmailService emailService;
 
     public AuthController(
             UserService userService,
             JwtService jwtService,
             UserRepository userRepository,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            EmailService emailService
     ) {
         this.userService = userService;
         this.jwtService = jwtService;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.emailService = emailService;
     }
 
-    // ================================
-    // REGISTER (con referral code + Referral Fee opcional)
-    // ================================
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(
             @RequestBody AuthRequest request,
@@ -48,8 +46,6 @@ public class AuthController {
                 request.getEmail(),
                 request.getPassword(),
                 ref,
-
-                // ✅ nuevos campos
                 request.getPhone(),
                 request.getOffersReferralFee(),
                 request.getReferralFeeType(),
@@ -57,14 +53,28 @@ public class AuthController {
                 request.getReferralFeeNotes()
         );
 
+        System.out.println("=================================");
+        System.out.println("REGISTER SUCCESS");
+        System.out.println("NEW USER: " + user.getEmail());
+        System.out.println("SENDING WELCOME EMAIL...");
+        System.out.println("=================================");
+
+        try {
+            emailService.sendWelcomeEmail(user.getEmail(), user.getFullName());
+        } catch (Exception ex) {
+            System.out.println("=================================");
+            System.out.println("WELCOME EMAIL CALL FAILED IN AUTH CONTROLLER");
+            System.out.println("USER: " + user.getEmail());
+            System.out.println("ERROR: " + ex.getMessage());
+            System.out.println("=================================");
+            ex.printStackTrace();
+        }
+
         return ResponseEntity.ok(
                 new AuthResponse("User registered successfully: " + user.getFullName())
         );
     }
 
-    // ================================
-    // LOGIN
-    // ================================
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
 
@@ -74,6 +84,7 @@ public class AuthController {
         if (email == null || email.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "email is required");
         }
+
         if (rawPass == null || rawPass.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "password is required");
         }
@@ -98,9 +109,6 @@ public class AuthController {
         );
     }
 
-    // ================================
-    // CHANGE EMAIL
-    // ================================
     @PostMapping("/change-email")
     public ResponseEntity<AuthResponse> changeEmail(@RequestBody ChangeEmailRequest req) {
 
@@ -113,9 +121,6 @@ public class AuthController {
         return ResponseEntity.ok(new AuthResponse("Email updated successfully"));
     }
 
-    // ================================
-    // SUBSCRIPTION STATUS (simple)
-    // ================================
     @GetMapping("/subscription-status")
     public ResponseEntity<SubscriptionStatusResponse> subscriptionStatus(
             @RequestParam("email") String email
