@@ -34,11 +34,20 @@ public class AuthController {
         this.emailService = emailService;
     }
 
+    // ================================
+    // REGISTER
+    // ================================
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(
             @RequestBody AuthRequest request,
             @RequestParam(value = "ref", required = false) String ref
     ) {
+
+        System.out.println("=================================");
+        System.out.println("AUTH CONTROLLER REGISTER HIT");
+        System.out.println("EMAIL: " + request.getEmail());
+        System.out.println("=================================");
+
         String effectiveName = request.getEffectiveName();
 
         User user = userService.registerUser(
@@ -60,21 +69,38 @@ public class AuthController {
         System.out.println("=================================");
 
         try {
-            emailService.sendWelcomeEmail(user.getEmail(), user.getFullName());
-        } catch (Exception ex) {
+
+            emailService.sendWelcomeEmail(
+                    user.getEmail(),
+                    user.getFullName()
+            );
+
             System.out.println("=================================");
-            System.out.println("WELCOME EMAIL CALL FAILED IN AUTH CONTROLLER");
+            System.out.println("WELCOME EMAIL SENT");
+            System.out.println("USER: " + user.getEmail());
+            System.out.println("=================================");
+
+        } catch (Exception ex) {
+
+            System.out.println("=================================");
+            System.out.println("WELCOME EMAIL FAILED");
             System.out.println("USER: " + user.getEmail());
             System.out.println("ERROR: " + ex.getMessage());
             System.out.println("=================================");
+
             ex.printStackTrace();
         }
 
         return ResponseEntity.ok(
-                new AuthResponse("User registered successfully: " + user.getFullName())
+                new AuthResponse(
+                        "User registered successfully: " + user.getFullName()
+                )
         );
     }
 
+    // ================================
+    // LOGIN
+    // ================================
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
 
@@ -82,18 +108,32 @@ public class AuthController {
         String rawPass = request.getPassword();
 
         if (email == null || email.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "email is required");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "email is required"
+            );
         }
 
         if (rawPass == null || rawPass.isBlank()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "password is required");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "password is required"
+            );
         }
 
         User user = userRepository.findByEmailIgnoreCase(email)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(
+                                HttpStatus.UNAUTHORIZED,
+                                "Invalid credentials"
+                        )
+                );
 
         if (!passwordEncoder.matches(rawPass, user.getPassword())) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Invalid credentials"
+            );
         }
 
         String token = jwtService.generateToken(user.getEmail());
@@ -109,8 +149,13 @@ public class AuthController {
         );
     }
 
+    // ================================
+    // CHANGE EMAIL
+    // ================================
     @PostMapping("/change-email")
-    public ResponseEntity<AuthResponse> changeEmail(@RequestBody ChangeEmailRequest req) {
+    public ResponseEntity<AuthResponse> changeEmail(
+            @RequestBody ChangeEmailRequest req
+    ) {
 
         userService.changeEmail(
                 req.getCurrentEmail(),
@@ -118,13 +163,20 @@ public class AuthController {
                 req.getPassword()
         );
 
-        return ResponseEntity.ok(new AuthResponse("Email updated successfully"));
+        return ResponseEntity.ok(
+                new AuthResponse("Email updated successfully")
+        );
     }
 
+    // ================================
+    // SUBSCRIPTION STATUS
+    // ================================
     @GetMapping("/subscription-status")
     public ResponseEntity<SubscriptionStatusResponse> subscriptionStatus(
             @RequestParam("email") String email
     ) {
-        return ResponseEntity.ok(userService.getSubscriptionStatus(email));
+        return ResponseEntity.ok(
+                userService.getSubscriptionStatus(email)
+        );
     }
 }
