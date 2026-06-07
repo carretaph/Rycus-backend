@@ -1,17 +1,21 @@
 package com.rycus.Rycus_backend.config;
 
+import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 
+import java.util.Properties;
+
 /**
- * Dummy mail sender.
- * Permite que el backend arranque aunque no haya SMTP configurado.
- * En local solo imprime el email en consola.
+ * Dummy mail sender ONLY for local development.
+ * In production, Gmail SMTP from Spring Boot will be used.
  */
 @Configuration
+@Profile("local")
 public class LocalMailConfig {
 
     @Bean
@@ -20,12 +24,21 @@ public class LocalMailConfig {
 
             @Override
             public MimeMessage createMimeMessage() {
-                return null;
+                return new MimeMessage(
+                        Session.getInstance(new Properties())
+                );
             }
 
             @Override
             public MimeMessage createMimeMessage(java.io.InputStream contentStream) {
-                return null;
+                try {
+                    return new MimeMessage(
+                            Session.getInstance(new Properties()),
+                            contentStream
+                    );
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
             }
 
             @Override
