@@ -34,20 +34,11 @@ public class AuthController {
         this.emailService = emailService;
     }
 
-    // ================================
-    // REGISTER
-    // ================================
     @PostMapping("/register")
     public ResponseEntity<AuthResponse> register(
             @RequestBody AuthRequest request,
             @RequestParam(value = "ref", required = false) String ref
     ) {
-
-        System.out.println("=================================");
-        System.out.println("AUTH CONTROLLER REGISTER HIT");
-        System.out.println("EMAIL: " + request.getEmail());
-        System.out.println("=================================");
-
         String effectiveName = request.getEffectiveName();
 
         User user = userService.registerUser(
@@ -62,32 +53,13 @@ public class AuthController {
                 request.getReferralFeeNotes()
         );
 
-        System.out.println("=================================");
-        System.out.println("REGISTER SUCCESS");
-        System.out.println("NEW USER: " + user.getEmail());
-        System.out.println("SENDING WELCOME EMAIL...");
-        System.out.println("=================================");
-
         try {
-
             emailService.sendWelcomeEmail(
                     user.getEmail(),
                     user.getFullName()
             );
-
-            System.out.println("=================================");
-            System.out.println("WELCOME EMAIL SENT");
-            System.out.println("USER: " + user.getEmail());
-            System.out.println("=================================");
-
         } catch (Exception ex) {
-
-            System.out.println("=================================");
-            System.out.println("WELCOME EMAIL FAILED");
-            System.out.println("USER: " + user.getEmail());
-            System.out.println("ERROR: " + ex.getMessage());
-            System.out.println("=================================");
-
+            System.out.println("WELCOME EMAIL FAILED FOR USER: " + user.getEmail());
             ex.printStackTrace();
         }
 
@@ -98,9 +70,6 @@ public class AuthController {
         );
     }
 
-    // ================================
-    // LOGIN
-    // ================================
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@RequestBody AuthRequest request) {
 
@@ -149,14 +118,10 @@ public class AuthController {
         );
     }
 
-    // ================================
-    // CHANGE EMAIL
-    // ================================
     @PostMapping("/change-email")
     public ResponseEntity<AuthResponse> changeEmail(
             @RequestBody ChangeEmailRequest req
     ) {
-
         userService.changeEmail(
                 req.getCurrentEmail(),
                 req.getNewEmail(),
@@ -168,9 +133,6 @@ public class AuthController {
         );
     }
 
-    // ================================
-    // SUBSCRIPTION STATUS
-    // ================================
     @GetMapping("/subscription-status")
     public ResponseEntity<SubscriptionStatusResponse> subscriptionStatus(
             @RequestParam("email") String email

@@ -26,6 +26,7 @@ public class EmailService {
     }
 
     public void sendConnectionInviteEmail(String toEmail, String requesterName) {
+
         String subject = "New Rycus connection request";
         String link = appUrl + "/connections";
 
@@ -47,16 +48,12 @@ public class EmailService {
 
     public void sendWelcomeEmail(String toEmail, String fullName) {
 
-        System.out.println("=================================");
-        System.out.println("SENDING WELCOME EMAIL");
-        System.out.println("TO: " + toEmail);
-        System.out.println("FROM: " + mailFrom);
-        System.out.println("=================================");
-
         try {
-            String safeName = (fullName != null && !fullName.isBlank())
-                    ? fullName.trim()
-                    : "there";
+
+            String safeName =
+                    (fullName != null && !fullName.isBlank())
+                            ? fullName.trim()
+                            : "there";
 
             String subject = "Welcome to Rycus 🎉";
 
@@ -82,31 +79,23 @@ public class EmailService {
                             "  </div>" +
                             "</div>";
 
-            System.out.println("Creating MimeMessage...");
-
             MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            MimeMessageHelper helper =
+                    new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setFrom(mailFrom);
             helper.setTo(toEmail);
             helper.setSubject(subject);
             helper.setText(html, true);
 
-            System.out.println("Sending email through Gmail SMTP...");
-
             mailSender.send(message);
 
-            System.out.println("=================================");
-            System.out.println("WELCOME EMAIL SENT SUCCESSFULLY");
-            System.out.println("TO: " + toEmail);
-            System.out.println("=================================");
-
         } catch (Exception ex) {
-            System.out.println("=================================");
-            System.out.println("WELCOME EMAIL FAILED");
-            System.out.println("TO: " + toEmail);
-            System.out.println("ERROR: " + ex.getMessage());
-            System.out.println("=================================");
+
+            System.out.println(
+                    "WELCOME EMAIL FAILED FOR: " + toEmail
+            );
 
             ex.printStackTrace();
         }
