@@ -119,8 +119,10 @@ public class UserService {
 
         // FREE LIFETIME (launch phase)
         user.setPlanType(PlanType.FREE_LIFETIME);
+        user.setSubscriptionStatus("ACTIVE");
         user.setTrialEndsAt(null);
         user.setSubscriptionEndsAt(null);
+        user.setAccessEndsAt(null);
         user.setFreeMonthsBalance(999);
 
         // referral code
