@@ -19,7 +19,7 @@ public class EmailService {
     private String appUrl;
 
     private static final String WELCOME_IMAGE_URL =
-            "https://rycus.app/rycus-welcome.png";
+            "https://res.cloudinary.com/dywqugq2q/image/upload/WELCOME_TO_RYCUS_qmacqm.png";
 
     public EmailService(JavaMailSender mailSender) {
         this.mailSender = mailSender;
@@ -49,7 +49,6 @@ public class EmailService {
     public void sendWelcomeEmail(String toEmail, String fullName) {
 
         try {
-
             String safeName =
                     (fullName != null && !fullName.isBlank())
                             ? fullName.trim()
@@ -58,31 +57,38 @@ public class EmailService {
             String subject = "Welcome to Rycus 🎉";
 
             String html =
-                    "<div style='font-family:Arial,sans-serif;background:#f4f7fb;padding:24px;'>" +
-                            "  <div style='max-width:680px;margin:0 auto;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e5e7eb;'>" +
-                            "    <img src='" + WELCOME_IMAGE_URL + "' alt='Welcome to Rycus' style='width:100%;display:block;' />" +
-                            "    <div style='padding:28px;'>" +
-                            "      <h1 style='color:#0b1f4d;margin:0 0 12px;font-size:28px;'>Welcome, " + safeName + "!</h1>" +
-                            "      <p style='color:#334155;font-size:16px;line-height:1.6;margin:0 0 16px;'>" +
-                            "        Congratulations and welcome to Rycus. You are now part of a trusted professional referral network built for contractors, sales professionals and local service providers." +
+                    "<div style='font-family:Arial,sans-serif;background:#f4f7fb;padding:24px;margin:0;'>" +
+                            "  <div style='max-width:820px;margin:0 auto;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e5e7eb;box-shadow:0 8px 24px rgba(15,23,42,0.08);'>" +
+
+                            "    <img src='" + WELCOME_IMAGE_URL + "' " +
+                            "         alt='Welcome to Rycus' " +
+                            "         style='width:100%;max-width:820px;height:auto;display:block;border:0;outline:none;text-decoration:none;' />" +
+
+                            "    <div style='padding:26px 28px 30px;text-align:center;'>" +
+
+                            "      <h1 style='color:#0b1f4d;margin:0 0 12px;font-size:28px;line-height:1.25;font-weight:800;'>" +
+                            "        Welcome, " + safeName + "!" +
+                            "      </h1>" +
+
+                            "      <p style='color:#334155;font-size:16px;line-height:1.6;margin:0 auto 18px;max-width:640px;'>" +
+                            "        Your Rycus account has been created successfully. You are now part of a trusted professional network built to help contractors, sales professionals and local service providers connect, refer and grow." +
                             "      </p>" +
-                            "      <p style='color:#334155;font-size:16px;line-height:1.6;margin:0 0 22px;'>" +
-                            "        Start connecting, sharing verified reviews, and growing real opportunities with trusted professionals." +
-                            "      </p>" +
-                            "      <a href='" + appUrl + "' style='display:inline-block;background:#1264ff;color:#ffffff;text-decoration:none;padding:14px 22px;border-radius:12px;font-weight:700;'>" +
+
+                            "      <a href='" + appUrl + "' " +
+                            "         style='display:inline-block;background:#1264ff;color:#ffffff;text-decoration:none;padding:14px 26px;border-radius:12px;font-weight:700;font-size:15px;'>" +
                             "        Open Rycus" +
                             "      </a>" +
-                            "      <p style='color:#64748b;font-size:13px;line-height:1.5;margin-top:24px;'>" +
+
+                            "      <p style='color:#64748b;font-size:13px;line-height:1.5;margin:22px 0 0;'>" +
                             "        If the button does not work, open: " + appUrl +
                             "      </p>" +
+
                             "    </div>" +
                             "  </div>" +
                             "</div>";
 
             MimeMessage message = mailSender.createMimeMessage();
-
-            MimeMessageHelper helper =
-                    new MimeMessageHelper(message, true, "UTF-8");
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
             helper.setFrom(mailFrom);
             helper.setTo(toEmail);
@@ -92,11 +98,7 @@ public class EmailService {
             mailSender.send(message);
 
         } catch (Exception ex) {
-
-            System.out.println(
-                    "WELCOME EMAIL FAILED FOR: " + toEmail
-            );
-
+            System.out.println("WELCOME EMAIL FAILED FOR: " + toEmail);
             ex.printStackTrace();
         }
     }
