@@ -11,15 +11,10 @@ import java.time.ZoneOffset;
 @Table(
         name = "reviews",
         indexes = {
-                // ✅ usando nombres reales de columna en DB (snake_case)
                 @Index(name = "idx_reviews_createdBy", columnList = "created_by"),
                 @Index(name = "idx_reviews_customer", columnList = "customer_id"),
                 @Index(name = "idx_reviews_createdBy_customer", columnList = "created_by, customer_id"),
                 @Index(name = "idx_reviews_createdAt", columnList = "created_at")
-        },
-        uniqueConstraints = {
-                // ✅ 1 review por customer por usuario
-                @UniqueConstraint(name = "uk_reviews_createdBy_customer", columnNames = {"created_by", "customer_id"})
         }
 )
 public class Review {
@@ -36,11 +31,9 @@ public class Review {
     @Column(length = 2000)
     private String comment;
 
-    // ✅ fuerza nombre de columna consistente con la DB
     @Column(name = "created_by", length = 180)
     private String createdBy;
 
-    // ✅ ahora consistente con MilestoneService/Repo (timezone-safe)
     @Column(name = "created_at", nullable = false)
     private OffsetDateTime createdAt;
 
@@ -49,7 +42,23 @@ public class Review {
     @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private Customer customer;
 
-    // viene del frontend, no se guarda en BD
+    // ==========================
+    // NUEVOS CAMPOS RYCUS
+    // ==========================
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "outcome")
+    private ReviewOutcome outcome;
+
+    @Column(name = "service_quoted", length = 150)
+    private String serviceQuoted;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "reason_not_sold")
+    private ReasonNotSold reasonNotSold;
+
+    // ==========================
+
     @Transient
     private String userEmail;
 
@@ -58,41 +67,115 @@ public class Review {
     @PrePersist
     public void prePersist() {
         if (this.createdAt == null) {
-            // ✅ siempre UTC para evitar líos de zona horaria
             this.createdAt = OffsetDateTime.now(ZoneOffset.UTC);
         }
+
         if (this.createdBy != null) {
             this.createdBy = this.createdBy.trim();
         }
     }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public int getRatingOverall() { return ratingOverall; }
-    public void setRatingOverall(int ratingOverall) { this.ratingOverall = ratingOverall; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public int getRatingPayment() { return ratingPayment; }
-    public void setRatingPayment(int ratingPayment) { this.ratingPayment = ratingPayment; }
+    public int getRatingOverall() {
+        return ratingOverall;
+    }
 
-    public int getRatingBehavior() { return ratingBehavior; }
-    public void setRatingBehavior(int ratingBehavior) { this.ratingBehavior = ratingBehavior; }
+    public void setRatingOverall(int ratingOverall) {
+        this.ratingOverall = ratingOverall;
+    }
 
-    public int getRatingCommunication() { return ratingCommunication; }
-    public void setRatingCommunication(int ratingCommunication) { this.ratingCommunication = ratingCommunication; }
+    public int getRatingPayment() {
+        return ratingPayment;
+    }
 
-    public String getComment() { return comment; }
-    public void setComment(String comment) { this.comment = comment; }
+    public void setRatingPayment(int ratingPayment) {
+        this.ratingPayment = ratingPayment;
+    }
 
-    public String getCreatedBy() { return createdBy; }
-    public void setCreatedBy(String createdBy) { this.createdBy = createdBy; }
+    public int getRatingBehavior() {
+        return ratingBehavior;
+    }
 
-    public OffsetDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
+    public void setRatingBehavior(int ratingBehavior) {
+        this.ratingBehavior = ratingBehavior;
+    }
 
-    public Customer getCustomer() { return customer; }
-    public void setCustomer(Customer customer) { this.customer = customer; }
+    public int getRatingCommunication() {
+        return ratingCommunication;
+    }
 
-    public String getUserEmail() { return userEmail; }
-    public void setUserEmail(String userEmail) { this.userEmail = userEmail; }
+    public void setRatingCommunication(int ratingCommunication) {
+        this.ratingCommunication = ratingCommunication;
+    }
+
+    public String getComment() {
+        return comment;
+    }
+
+    public void setComment(String comment) {
+        this.comment = comment;
+    }
+
+    public String getCreatedBy() {
+        return createdBy;
+    }
+
+    public void setCreatedBy(String createdBy) {
+        this.createdBy = createdBy;
+    }
+
+    public OffsetDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(OffsetDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Customer getCustomer() {
+        return customer;
+    }
+
+    public void setCustomer(Customer customer) {
+        this.customer = customer;
+    }
+
+    public ReviewOutcome getOutcome() {
+        return outcome;
+    }
+
+    public void setOutcome(ReviewOutcome outcome) {
+        this.outcome = outcome;
+    }
+
+    public String getServiceQuoted() {
+        return serviceQuoted;
+    }
+
+    public void setServiceQuoted(String serviceQuoted) {
+        this.serviceQuoted = serviceQuoted;
+    }
+
+    public ReasonNotSold getReasonNotSold() {
+        return reasonNotSold;
+    }
+
+    public void setReasonNotSold(ReasonNotSold reasonNotSold) {
+        this.reasonNotSold = reasonNotSold;
+    }
+
+    public String getUserEmail() {
+        return userEmail;
+    }
+
+    public void setUserEmail(String userEmail) {
+        this.userEmail = userEmail;
+    }
 }

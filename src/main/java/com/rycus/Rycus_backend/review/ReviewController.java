@@ -50,7 +50,6 @@ public class ReviewController {
 
         ReviewDto dto = reviewService.createReview(customerId, reviewRequest, userEmail);
 
-        // Create automatic Wall activity post
         if (userEmail != null && !userEmail.isBlank()) {
             try {
                 String reviewerName =
@@ -73,14 +72,41 @@ public class ReviewController {
                                 ? dto.getComment().trim()
                                 : "";
 
+                String outcomeText = formatOutcome(dto.getOutcome());
+                String reasonText = formatReasonNotSold(dto.getReasonNotSold());
+                String serviceText = formatService(dto.getServiceQuoted());
+
+                boolean isAnonymous =
+                        reviewRequest.getCreatedBy() == null ||
+                                reviewRequest.getCreatedBy().isBlank() ||
+                                reviewRequest.getCreatedBy().equalsIgnoreCase("Anonymous reviewer");
+
                 PostCreateRequest post = new PostCreateRequest();
-                post.setAuthorEmail(userEmail.trim().toLowerCase());
-                post.setAuthorName(reviewerName);
+
+                if (isAnonymous) {
+                    post.setAuthorEmail("anonymous@rycus.app");
+                    post.setAuthorName("Anonymous reviewer");
+                } else {
+                    post.setAuthorEmail(userEmail.trim().toLowerCase());
+                    post.setAuthorName(reviewerName);
+                }
 
                 String text =
                         "⭐ New Customer Review\n\n" +
                                 "Customer: " + customerName + "\n" +
                                 "Rating: " + rating + "/5 ⭐";
+
+                if (outcomeText != null && !outcomeText.isBlank()) {
+                    text += "\nOutcome: " + outcomeText;
+                }
+
+                if (serviceText != null && !serviceText.isBlank()) {
+                    text += "\nService: " + serviceText;
+                }
+
+                if (reasonText != null && !reasonText.isBlank()) {
+                    text += "\nReason not sold: " + reasonText;
+                }
 
                 if (!comment.isBlank()) {
                     text += "\n\n\"" + comment + "\"";
@@ -103,5 +129,100 @@ public class ReviewController {
     public ResponseEntity<String> deleteReview(@PathVariable Long id) {
         reviewService.deleteReview(id);
         return ResponseEntity.ok("Review deleted successfully");
+    }
+
+    private String formatOutcome(ReviewOutcome outcome) {
+        if (outcome == null) return null;
+
+        return switch (outcome) {
+            case SOLD -> "Sold";
+            case NOT_SOLD -> "Not sold";
+            case NO_SHOW -> "No show";
+            case CANCELLED -> "Cancelled";
+            case RESCHEDULED -> "Rescheduled";
+            case BAD_LEAD -> "Bad lead";
+            case STILL_THINKING -> "Still thinking";
+        };
+    }
+
+    private String formatReasonNotSold(ReasonNotSold reason) {
+        if (reason == null) return null;
+
+        return switch (reason) {
+            case PRICE -> "Price";
+            case NEEDED_SPOUSE -> "Needed spouse";
+            case CREDIT_ISSUE -> "Credit issue";
+            case JUST_SHOPPING -> "Just shopping";
+            case NOT_READY -> "Not ready";
+            case WENT_WITH_ANOTHER_COMPANY -> "Went with another company";
+            case OTHER -> "Other";
+        };
+    }
+
+    private String formatService(String service) {
+        if (service == null || service.isBlank()) return null;
+
+        return switch (service.trim()) {
+            case "AIRBNB" -> "Airbnb Hosts / Short-Term Rentals";
+            case "ALARM_SYSTEMS" -> "Alarm Systems";
+            case "AUTO_DETAILING" -> "Auto Detailing";
+            case "AUTO_REPAIR" -> "Auto Repair Shops";
+            case "BEAUTY_SALON" -> "Beauty Salons / Barbers";
+            case "CAFE" -> "Cafés / Coffee Shops";
+            case "CAR_DEALERSHIP" -> "Car Dealerships";
+            case "CLEANING" -> "Cleaning Services";
+            case "CLOTHING_STORE" -> "Clothing Stores";
+            case "COMMERCIAL_SUPPLY" -> "Commercial Supply";
+            case "CONVENIENCE_STORE" -> "Convenience Stores";
+            case "CONSULTING" -> "Consulting";
+            case "DAYCARE" -> "Daycare / Childcare";
+            case "DRYWALL" -> "Drywall";
+            case "ELECTRICAL" -> "Electrical";
+            case "ELECTRONICS_STORE" -> "Electronics Stores";
+            case "FENCING" -> "Fencing";
+            case "FINANCE" -> "Accounting / Finance";
+            case "FIRE_RESTORATION" -> "Fire Restoration";
+            case "FITNESS" -> "Gyms / Fitness Studios";
+            case "FLOORING" -> "Flooring";
+            case "FOOD_TRUCK" -> "Food Trucks";
+            case "FURNITURE_STORE" -> "Furniture Stores";
+            case "HOME_INSPECTION" -> "Home Inspectors";
+            case "HVAC" -> "HVAC";
+            case "INSULATION" -> "Insulation";
+            case "INSURANCE_CLAIMS" -> "Storm / Insurance Claims";
+            case "IT_SERVICES" -> "IT Services";
+            case "JEWELRY_STORE" -> "Jewelry Stores";
+            case "LANDSCAPING" -> "Landscaping";
+            case "LEGAL" -> "Legal Services";
+            case "LOGISTICS" -> "Logistics / Delivery";
+            case "MANUFACTURING" -> "Manufacturing";
+            case "MARKETING" -> "Marketing / Advertising";
+            case "MOLD_REMEDIATION" -> "Mold Remediation";
+            case "NAIL_SALON" -> "Nail Salons";
+            case "PAINTING" -> "Painting";
+            case "PEST_CONTROL" -> "Pest Control";
+            case "PET_GROOMING" -> "Pet Grooming";
+            case "PET_STORE" -> "Pet Stores";
+            case "PLUMBING" -> "Plumbing";
+            case "POOLS_SPAS" -> "Pools & Spas";
+            case "PROPERTY_MANAGEMENT" -> "Property Management";
+            case "REAL_ESTATE" -> "Real Estate Agents";
+            case "REMODELING" -> "Remodeling";
+            case "RESTAURANT" -> "Restaurants";
+            case "RETAIL_GENERAL" -> "Retail Stores (General)";
+            case "ROOFING" -> "Roofing";
+            case "SECURITY_SYSTEMS" -> "Security Systems";
+            case "SMART_HOME_SECURITY" -> "Smart Home Security";
+            case "SOLAR" -> "Solar";
+            case "SUPERMARKET" -> "Supermarkets";
+            case "SURVEILLANCE" -> "Surveillance / Cameras";
+            case "TIRE_SHOP" -> "Tire Shops";
+            case "WAREHOUSING" -> "Warehousing";
+            case "WATER_RESTORATION" -> "Water Damage Restoration";
+            case "WINDOWS_DOORS" -> "Windows & Doors";
+            case "WHOLESALE" -> "Wholesale";
+            case "OTHER" -> "Other";
+            default -> service.trim();
+        };
     }
 }

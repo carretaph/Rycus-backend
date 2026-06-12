@@ -25,9 +25,6 @@ public class ReviewService {
         this.customerRepository = customerRepository;
     }
 
-    // =========================================================
-    // GET reviews for a customer
-    // =========================================================
     public List<ReviewDto> getReviewsForCustomer(
             Long customerId,
             String userEmail
@@ -40,26 +37,16 @@ public class ReviewService {
             );
         }
 
-        // =====================================================
-        // Si mandan userEmail => filtra por usuario
-        // =====================================================
         if (userEmail != null && !userEmail.trim().isBlank()) {
-
             String email = userEmail.trim().toLowerCase();
 
             return reviewRepository
-                    .findByCustomerIdAndCreatedByFetchCustomer(
-                            customerId,
-                            email
-                    )
+                    .findByCustomerIdAndCreatedByFetchCustomer(customerId, email)
                     .stream()
                     .map(ReviewDto::new)
                     .toList();
         }
 
-        // =====================================================
-        // Si NO mandan userEmail => devolver TODOS los reviews
-        // =====================================================
         return reviewRepository
                 .findAllByCustomerIdFetchCustomer(customerId)
                 .stream()
@@ -67,9 +54,6 @@ public class ReviewService {
                 .toList();
     }
 
-    // =========================================================
-    // CREATE review
-    // =========================================================
     public ReviewDto createReview(
             Long customerId,
             Review reviewRequest,
@@ -101,9 +85,6 @@ public class ReviewService {
                         )
                 );
 
-        // =====================================================
-        // Anti-spam
-        // =====================================================
         Review last = reviewRepository
                 .findTopByCustomer_IdAndCreatedByIgnoreCaseOrderByCreatedAtDesc(
                         customerId,
@@ -112,12 +93,10 @@ public class ReviewService {
                 .orElse(null);
 
         if (last != null && last.getCreatedAt() != null) {
-
             OffsetDateTime cutoff =
                     OffsetDateTime.now(ZoneOffset.UTC).minusSeconds(5);
 
             if (last.getCreatedAt().isAfter(cutoff)) {
-
                 throw new ResponseStatusException(
                         HttpStatus.CONFLICT,
                         "Duplicate submission detected. Please wait a few seconds and try again."
@@ -128,8 +107,6 @@ public class ReviewService {
         Review r = new Review();
 
         r.setCustomer(customer);
-
-        // createdBy = email normalized
         r.setCreatedBy(emailNormalized);
 
         r.setRatingOverall(reviewRequest.getRatingOverall());
@@ -138,14 +115,24 @@ public class ReviewService {
         r.setRatingCommunication(reviewRequest.getRatingCommunication());
         r.setComment(reviewRequest.getComment());
 
+        // NUEVOS CAMPOS
+        r.setOutcome(reviewRequest.getOutcome());
+
+        if (reviewRequest.getServiceQuoted() != null) {
+            r.setServiceQuoted(reviewRequest.getServiceQuoted().trim());
+        }
+
+        if (reviewRequest.getOutcome() == ReviewOutcome.NOT_SOLD) {
+            r.setReasonNotSold(reviewRequest.getReasonNotSold());
+        } else {
+            r.setReasonNotSold(null);
+        }
+
         Review saved = reviewRepository.save(r);
 
         return new ReviewDto(saved);
     }
 
-    // =========================================================
-    // DELETE review
-    // =========================================================
     public void deleteReview(Long reviewId) {
 
         if (reviewId == null) {
@@ -156,7 +143,6 @@ public class ReviewService {
         }
 
         if (!reviewRepository.existsById(reviewId)) {
-
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
                     "Review not found"
