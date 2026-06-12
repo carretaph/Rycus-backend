@@ -51,6 +51,7 @@ public class AuthController {
                 request.getIndustry(),
                 request.getCity(),
                 request.getState(),
+                request.getServiceTerritory(),
                 request.getOffersReferralFee(),
                 request.getReferralFeeType(),
                 request.getReferralFeeValue(),

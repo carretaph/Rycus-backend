@@ -83,6 +83,7 @@ public class UserService {
             String industry,
             String city,
             String state,
+            String serviceTerritory,
             Boolean offersReferralFee,
             String referralFeeType,
             BigDecimal referralFeeValue,
@@ -124,6 +125,9 @@ public class UserService {
 
         String stateTrim = safeTrim(state);
         if (stateTrim != null) user.setState(stateTrim);
+
+        String serviceTerritoryTrim = safeTrim(serviceTerritory);
+        if (serviceTerritoryTrim != null) user.setServiceTerritory(serviceTerritoryTrim);
 
         // ✅ BCrypt
         user.setPassword(passwordEncoder.encode(rawPassword.trim()));
@@ -420,6 +424,7 @@ public class UserService {
         dto.setIndustry(user.getIndustry());
         dto.setCity(user.getCity());
         dto.setState(user.getState());
+        dto.setServiceTerritory(user.getServiceTerritory());
         dto.setAvatarUrl(user.getAvatarUrl());
 
         // ✅ Referral Fee fields (public)
@@ -457,6 +462,8 @@ public class UserService {
             if (body.getIndustry() != null) user.setIndustry(body.getIndustry().trim());
             if (body.getCity() != null) user.setCity(body.getCity().trim());
             if (body.getState() != null) user.setState(body.getState().trim());
+            if (body.getServiceTerritory() != null)
+                user.setServiceTerritory(body.getServiceTerritory().trim());
             if (body.getAvatarUrl() != null) user.setAvatarUrl(body.getAvatarUrl());
 
             // ✅ Referral Fee update (optional)

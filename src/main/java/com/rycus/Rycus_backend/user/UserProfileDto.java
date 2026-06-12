@@ -15,6 +15,7 @@ public class UserProfileDto {
     private String industry;
     private String city;
     private String state;
+    private String serviceTerritory;
     private String avatarUrl;
 
     // =========================================================
@@ -54,6 +55,12 @@ public class UserProfileDto {
 
     public String getState() { return state; }
     public void setState(String state) { this.state = state; }
+
+    public String getServiceTerritory() { return serviceTerritory; }
+
+    public void setServiceTerritory(String serviceTerritory) {
+        this.serviceTerritory = serviceTerritory;
+    }
 
     public String getAvatarUrl() { return avatarUrl; }
     public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }

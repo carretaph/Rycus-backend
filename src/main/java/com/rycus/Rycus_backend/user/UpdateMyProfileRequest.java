@@ -11,6 +11,7 @@ public class UpdateMyProfileRequest {
     private String industry;
     private String city;
     private String state;
+    private String serviceTerritory;
 
     // =========================================================
     // ✅ REFERRAL FEE (PUBLIC) - optional
@@ -32,6 +33,7 @@ public class UpdateMyProfileRequest {
     public String getIndustry() { return industry; }
     public String getCity() { return city; }
     public String getState() { return state; }
+    public String getServiceTerritory() { return serviceTerritory; }
 
     // ================================
     // Basic profile setters
@@ -43,6 +45,7 @@ public class UpdateMyProfileRequest {
     public void setIndustry(String industry) { this.industry = industry; }
     public void setCity(String city) { this.city = city; }
     public void setState(String state) { this.state = state; }
+    public void setServiceTerritory(String serviceTerritory) { this.serviceTerritory = serviceTerritory; }
 
     // ================================
     // ✅ Referral Fee getters/setters

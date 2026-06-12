@@ -47,6 +47,8 @@ public class User {
     private String industry;
     private String city;
     private String state;
+    @Column(name = "service_territory")
+    private String serviceTerritory;
 
     @Column(name = "avatar_url", columnDefinition = "TEXT")
     private String avatarUrl;
@@ -170,6 +172,9 @@ public class User {
 
     public String getState() { return state; }
     public void setState(String state) { this.state = state; }
+
+    public String getServiceTerritory() { return serviceTerritory; }
+    public void setServiceTerritory(String serviceTerritory) { this.serviceTerritory = serviceTerritory; }
 
     public String getAvatarUrl() { return avatarUrl; }
     public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
