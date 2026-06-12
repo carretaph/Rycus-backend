@@ -79,6 +79,10 @@ public class UserService {
             String rawPassword,
             String ref,
             String phone,
+            String businessName,
+            String industry,
+            String city,
+            String state,
             Boolean offersReferralFee,
             String referralFeeType,
             BigDecimal referralFeeValue,
@@ -109,6 +113,17 @@ public class UserService {
         // ✅ Phone (optional)
         String phoneTrim = safeTrim(phone);
         if (phoneTrim != null) user.setPhone(phoneTrim);
+        String businessNameTrim = safeTrim(businessName);
+        if (businessNameTrim != null) user.setBusinessName(businessNameTrim);
+
+        String industryTrim = safeTrim(industry);
+        if (industryTrim != null) user.setIndustry(industryTrim);
+
+        String cityTrim = safeTrim(city);
+        if (cityTrim != null) user.setCity(cityTrim);
+
+        String stateTrim = safeTrim(state);
+        if (stateTrim != null) user.setState(stateTrim);
 
         // ✅ BCrypt
         user.setPassword(passwordEncoder.encode(rawPassword.trim()));
