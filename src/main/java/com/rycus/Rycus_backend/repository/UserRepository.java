@@ -74,6 +74,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
             or lower(coalesce(u.industry, '')) like lower(concat('%', :q, '%'))
             or lower(coalesce(u.city, '')) like lower(concat('%', :q, '%'))
             or lower(coalesce(u.state, '')) like lower(concat('%', :q, '%'))
+            or lower(coalesce(u.serviceTerritory, '')) like lower(concat('%', :q, '%'))
         )
         order by u.offersReferralFee desc, coalesce(u.fullName, u.email) asc
     """)
@@ -109,11 +110,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
             or lower(coalesce(u.industry, '')) like lower(concat('%', :industry, '%'))
         )
         and (
-            :location is null
-            or :location = ''
-            or lower(coalesce(u.city, '')) like lower(concat('%', :location, '%'))
-            or lower(coalesce(u.state, '')) like lower(concat('%', :location, '%'))
-        )
+                     :location is null
+                     or :location = ''
+                     or lower(coalesce(u.city, '')) like lower(concat('%', :location, '%'))
+                     or lower(coalesce(u.state, '')) like lower(concat('%', :location, '%'))
+                     or lower(coalesce(u.serviceTerritory, '')) like lower(concat('%', :location, '%'))
+                 )
         order by u.offersReferralFee desc, coalesce(u.fullName, u.email) asc
     """)
     List<UserSearchDto> searchWithReferralFeeAdvanced(
