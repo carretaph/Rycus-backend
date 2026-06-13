@@ -15,6 +15,7 @@ public class SafeUserDto {
     private String businessName;
     private String city;
     private String state;
+    private String serviceTerritory;
 
     private String planType;
     private String subscriptionStatus;
@@ -36,6 +37,7 @@ public class SafeUserDto {
             String businessName,
             String city,
             String state,
+            String serviceTerritory,
             String planType,
             String subscriptionStatus,
             Boolean offersReferralFee,
@@ -51,6 +53,7 @@ public class SafeUserDto {
         this.businessName = businessName;
         this.city = city;
         this.state = state;
+        this.serviceTerritory = serviceTerritory;
         this.planType = planType;
         this.subscriptionStatus = subscriptionStatus;
 
@@ -72,6 +75,7 @@ public class SafeUserDto {
                 user.getBusinessName(),
                 user.getCity(),
                 user.getState(),
+                user.getServiceTerritory(),
                 user.getPlanType() == null ? null : user.getPlanType().name(),
                 user.getSubscriptionStatus(),
 
@@ -91,6 +95,7 @@ public class SafeUserDto {
     public String getBusinessName() { return businessName; }
     public String getCity() { return city; }
     public String getState() { return state; }
+    public String getServiceTerritory() { return serviceTerritory; }
 
     public String getPlanType() { return planType; }
     public String getSubscriptionStatus() { return subscriptionStatus; }
@@ -108,6 +113,9 @@ public class SafeUserDto {
     public void setBusinessName(String businessName) { this.businessName = businessName; }
     public void setCity(String city) { this.city = city; }
     public void setState(String state) { this.state = state; }
+    public void setServiceTerritory(String serviceTerritory) {
+        this.serviceTerritory = serviceTerritory;
+    }
 
     public void setPlanType(String planType) { this.planType = planType; }
     public void setSubscriptionStatus(String subscriptionStatus) { this.subscriptionStatus = subscriptionStatus; }
