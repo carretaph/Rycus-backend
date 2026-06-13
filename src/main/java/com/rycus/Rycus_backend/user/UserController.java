@@ -59,6 +59,7 @@ public class UserController {
         public String industry;
         public String city;
         public String state;
+        public String serviceTerritory;
 
         public Boolean offersReferralFee;
         public String referralFeeType;
@@ -118,6 +119,7 @@ public class UserController {
             if (body.industry != null) user.setIndustry(body.industry.trim());
             if (body.city != null) user.setCity(body.city.trim());
             if (body.state != null) user.setState(body.state.trim());
+            if (body.serviceTerritory != null) user.setServiceTerritory(body.serviceTerritory.trim());
 
             if (body.offersReferralFee != null) {
                 user.setOffersReferralFee(body.offersReferralFee);
