@@ -8,7 +8,8 @@ import java.util.List;
 
 public interface PostRepository extends JpaRepository<Post, Long> {
 
-    List<Post> findAllByOrderByCreatedAtDesc(Pageable pageable);
+    // Posts fijados primero, luego por fecha
+    List<Post> findAllByOrderByPinnedDescCreatedAtDesc(Pageable pageable);
 
     List<Post> findByAuthorEmailIgnoreCaseOrderByCreatedAtDesc(String authorEmail);
 }

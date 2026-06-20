@@ -63,7 +63,20 @@ public class PostService {
             name = email.contains("@") ? email.split("@")[0] : email;
         }
 
-        Post saved = repo.save(new Post(text, email, name));
+        Post post = new Post(text, email, name);
+
+// Solo admins pueden crear posts oficiales
+        boolean isAdmin =
+                email.equalsIgnoreCase("carretaph@gmail.com") ||
+                        email.equalsIgnoreCase("carretaph@hotmail.com");
+
+        if (isAdmin) {
+            post.setOfficialPost(Boolean.TRUE.equals(req.getOfficialPost()));
+            post.setPinned(Boolean.TRUE.equals(req.getPinned()));
+            post.setImageUrl(req.getImageUrl());
+        }
+
+        Post saved = repo.save(post);
         return buildFullDto(saved, false);
     }
 
@@ -123,7 +136,7 @@ public class PostService {
                 ? userRepo.findByEmailIgnoreCase(viewer).orElse(null)
                 : null;
 
-        return repo.findAllByOrderByCreatedAtDesc(PageRequest.of(0, safeLimit))
+        return repo.findAllByOrderByPinnedDescCreatedAtDesc(PageRequest.of(0, safeLimit))
                 .stream()
                 .filter(p -> canViewerSeePost(viewerUser, p))
                 .map(p -> {
@@ -346,6 +359,9 @@ public class PostService {
         );
 
         dto.setAuthorId(authorId);
+        dto.setOfficialPost(post.isOfficialPost());
+        dto.setPinned(post.isPinned());
+        dto.setImageUrl(post.getImageUrl());
 
         return dto;
     }

@@ -12,7 +12,6 @@ public class PostDto {
     private String authorEmail;
     private String authorName;
     private Long authorId;
-
     private String authorAvatarUrl;
 
     private Instant createdAt;
@@ -22,6 +21,10 @@ public class PostDto {
 
     private long commentCount;
     private List<String> imageUrls = new ArrayList<>();
+
+    private boolean officialPost;
+    private boolean pinned;
+    private String imageUrl;
 
     public PostDto() {}
 
@@ -35,16 +38,8 @@ public class PostDto {
             long likeCount,
             boolean likedByViewer
     ) {
-        this.id = id;
-        this.text = text;
-        this.authorEmail = authorEmail;
-        this.authorName = authorName;
-        this.authorAvatarUrl = authorAvatarUrl;
-        this.createdAt = createdAt;
-        this.likeCount = likeCount;
-        this.likedByViewer = likedByViewer;
-        this.commentCount = 0L;
-        this.imageUrls = new ArrayList<>();
+        this(id, text, authorEmail, authorName, authorAvatarUrl, createdAt,
+                likeCount, likedByViewer, 0L, new ArrayList<>());
     }
 
     public PostDto(
@@ -82,6 +77,9 @@ public class PostDto {
     public boolean isLikedByViewer() { return likedByViewer; }
     public long getCommentCount() { return commentCount; }
     public List<String> getImageUrls() { return imageUrls; }
+    public boolean isOfficialPost() { return officialPost; }
+    public boolean isPinned() { return pinned; }
+    public String getImageUrl() { return imageUrl; }
 
     public void setId(Long id) { this.id = id; }
     public void setText(String text) { this.text = text; }
@@ -93,7 +91,12 @@ public class PostDto {
     public void setLikeCount(long likeCount) { this.likeCount = likeCount; }
     public void setLikedByViewer(boolean likedByViewer) { this.likedByViewer = likedByViewer; }
     public void setCommentCount(long commentCount) { this.commentCount = commentCount; }
+
     public void setImageUrls(List<String> imageUrls) {
         this.imageUrls = (imageUrls == null) ? new ArrayList<>() : imageUrls;
     }
+
+    public void setOfficialPost(boolean officialPost) { this.officialPost = officialPost; }
+    public void setPinned(boolean pinned) { this.pinned = pinned; }
+    public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
 }
