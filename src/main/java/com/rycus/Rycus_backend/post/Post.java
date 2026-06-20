@@ -23,7 +23,23 @@ public class Post {
     @Column(nullable = false)
     private Instant createdAt = Instant.now();
 
-    public Post() {}
+    // ==========================
+    // RYCUS OFFICIAL POSTS
+    // ==========================
+
+    @Column(nullable = false)
+    private boolean officialPost = false;
+
+    @Column(nullable = false)
+    private boolean pinned = false;
+
+    @Column(length = 500)
+    private String imageUrl;
+
+    // ==========================
+
+    public Post() {
+    }
 
     public Post(String text, String authorEmail, String authorName) {
         this.text = text;
@@ -32,17 +48,79 @@ public class Post {
         this.createdAt = Instant.now();
     }
 
-    public Long getId() { return id; }
+    // ==========================
+    // BASIC FIELDS
+    // ==========================
 
-    public String getText() { return text; }
-    public void setText(String text) { this.text = text; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getAuthorEmail() { return authorEmail; }
-    public void setAuthorEmail(String authorEmail) { this.authorEmail = authorEmail; }
+    public String getText() {
+        return text;
+    }
 
-    public String getAuthorName() { return authorName; }
-    public void setAuthorName(String authorName) { this.authorName = authorName; }
+    public void setText(String text) {
+        this.text = text;
+    }
 
-    public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+    public String getAuthorEmail() {
+        return authorEmail;
+    }
+
+    public void setAuthorEmail(String authorEmail) {
+        this.authorEmail = authorEmail;
+    }
+
+    public String getAuthorName() {
+        return authorName;
+    }
+
+    public void setAuthorName(String authorName) {
+        this.authorName = authorName;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    // ==========================
+    // OFFICIAL POST
+    // ==========================
+
+    public boolean isOfficialPost() {
+        return officialPost;
+    }
+
+    public void setOfficialPost(boolean officialPost) {
+        this.officialPost = officialPost;
+    }
+
+    // ==========================
+    // PINNED
+    // ==========================
+
+    public boolean isPinned() {
+        return pinned;
+    }
+
+    public void setPinned(boolean pinned) {
+        this.pinned = pinned;
+    }
+
+    // ==========================
+    // IMAGE
+    // ==========================
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
+    }
 }
