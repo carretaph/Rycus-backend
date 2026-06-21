@@ -129,12 +129,32 @@ public class PostService {
 
         Post saved = repo.save(post);
 
+        int videoCount = 0;
+
         if (hasFiles) {
             for (MultipartFile f : files) {
                 if (f == null || f.isEmpty()) continue;
 
-                String imageUrl = uploadPostImage(f);
-                imageRepo.save(new PostImage(saved.getId(), imageUrl));
+                String contentType = f.getContentType() == null ? "" : f.getContentType().toLowerCase();
+
+                if (contentType.startsWith("video/")) {
+                    videoCount++;
+
+                    if (videoCount > 1) {
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only 1 video allowed per post");
+                    }
+
+                    if (!isAdmin) {
+                        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Only admins can upload videos");
+                    }
+
+                    String videoUrl = uploadPostVideo(f);
+                    saved.setVideoUrl(videoUrl);
+                    repo.save(saved);
+                } else {
+                    String imageUrl = uploadPostImage(f);
+                    imageRepo.save(new PostImage(saved.getId(), imageUrl));
+                }
             }
         }
 
@@ -379,6 +399,7 @@ public class PostService {
         dto.setOfficialPost(post.isOfficialPost());
         dto.setPinned(post.isPinned());
         dto.setImageUrl(post.getImageUrl());
+        dto.setVideoUrl(post.getVideoUrl());
 
         return dto;
     }
@@ -411,7 +432,7 @@ public class PostService {
             Map<?, ?> uploadResult = cloudinary.uploader().upload(
                     file.getBytes(),
                     Map.of(
-                            "folder", "rycus/posts",
+                            "folder", "rycus/posts/images",
                             "resource_type", "image"
                     )
             );
@@ -420,7 +441,7 @@ public class PostService {
             if (secureUrl == null || !StringUtils.hasText(secureUrl.toString())) {
                 throw new ResponseStatusException(
                         HttpStatus.INTERNAL_SERVER_ERROR,
-                        "Cloudinary did not return secure_url"
+                        "Cloudinary did not return image secure_url"
                 );
             }
 
@@ -430,6 +451,35 @@ public class PostService {
             throw new ResponseStatusException(
                     HttpStatus.INTERNAL_SERVER_ERROR,
                     "Failed to upload image"
+            );
+        }
+    }
+
+    private String uploadPostVideo(MultipartFile file) {
+
+        try {
+            Map<?, ?> uploadResult = cloudinary.uploader().upload(
+                    file.getBytes(),
+                    Map.of(
+                            "folder", "rycus/posts/videos",
+                            "resource_type", "video"
+                    )
+            );
+
+            Object secureUrl = uploadResult.get("secure_url");
+            if (secureUrl == null || !StringUtils.hasText(secureUrl.toString())) {
+                throw new ResponseStatusException(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        "Cloudinary did not return video secure_url"
+                );
+            }
+
+            return secureUrl.toString();
+
+        } catch (IOException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Failed to upload video"
             );
         }
     }

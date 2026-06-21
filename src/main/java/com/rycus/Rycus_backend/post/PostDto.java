@@ -25,6 +25,7 @@ public class PostDto {
     private boolean officialPost;
     private boolean pinned;
     private String imageUrl;
+    private String videoUrl;
 
     public PostDto() {}
 
@@ -80,6 +81,7 @@ public class PostDto {
     public boolean isOfficialPost() { return officialPost; }
     public boolean isPinned() { return pinned; }
     public String getImageUrl() { return imageUrl; }
+    public String getVideoUrl() { return videoUrl; }
 
     public void setId(Long id) { this.id = id; }
     public void setText(String text) { this.text = text; }
@@ -99,4 +101,5 @@ public class PostDto {
     public void setOfficialPost(boolean officialPost) { this.officialPost = officialPost; }
     public void setPinned(boolean pinned) { this.pinned = pinned; }
     public void setImageUrl(String imageUrl) { this.imageUrl = imageUrl; }
+    public void setVideoUrl(String videoUrl) { this.videoUrl = videoUrl; }
 }

@@ -36,6 +36,9 @@ public class Post {
     @Column(length = 500)
     private String imageUrl;
 
+    @Column(length = 700)
+    private String videoUrl;
+
     // ==========================
 
     public Post() {
@@ -101,20 +104,20 @@ public class Post {
     }
 
     // ==========================
-    // PINNED
-    // ==========================
+// PINNED
+// ==========================
 
-    public boolean isPinned() {
-        return pinned;
-    }
+public boolean isPinned() {
+    return pinned;
+}
 
-    public void setPinned(boolean pinned) {
-        this.pinned = pinned;
-    }
+public void setPinned(boolean pinned) {
+    this.pinned = pinned;
+}
 
-    // ==========================
-    // IMAGE
-    // ==========================
+// ==========================
+// IMAGE
+// ==========================
 
     public String getImageUrl() {
         return imageUrl;
@@ -122,5 +125,17 @@ public class Post {
 
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
+    }
+
+// ==========================
+// VIDEO
+// ==========================
+
+    public String getVideoUrl() {
+        return videoUrl;
+    }
+
+    public void setVideoUrl(String videoUrl) {
+        this.videoUrl = videoUrl;
     }
 }
