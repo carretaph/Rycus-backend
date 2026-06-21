@@ -22,7 +22,7 @@ public class PostController {
     // CREATE POST (JSON)
     // POST /posts
     // Content-Type: application/json
-    // Body: { text, authorEmail, authorName }
+    // Body: { text, authorEmail, authorName, officialPost, pinned, imageUrl }
     // =====================================================
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<PostDto> create(@RequestBody PostCreateRequest req) {
@@ -37,6 +37,8 @@ public class PostController {
     //   text (optional)
     //   authorEmail (required)
     //   authorName (required)
+    //   officialPost (optional)
+    //   pinned (optional)
     //   files (optional, repeatable, max 6)
     // =====================================================
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
@@ -44,9 +46,13 @@ public class PostController {
             @RequestParam(value = "text", required = false) String text,
             @RequestParam("authorEmail") String authorEmail,
             @RequestParam("authorName") String authorName,
+            @RequestParam(value = "officialPost", required = false) Boolean officialPost,
+            @RequestParam(value = "pinned", required = false) Boolean pinned,
             @RequestParam(value = "files", required = false) List<MultipartFile> files
     ) {
-        return ResponseEntity.ok(service.createWithImages(text, authorEmail, authorName, files));
+        return ResponseEntity.ok(
+                service.createWithImages(text, authorEmail, authorName, officialPost, pinned, files)
+        );
     }
 
     // =====================================================

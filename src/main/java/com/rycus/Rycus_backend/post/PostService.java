@@ -87,11 +87,21 @@ public class PostService {
             String text,
             String email,
             String name,
+            Boolean officialPost,
+            Boolean pinned,
             List<MultipartFile> files
     ) {
         String safeText = text == null ? "" : text.trim();
         String safeEmail = email == null ? "" : email.trim();
         String safeName = name == null ? "" : name.trim();
+
+        boolean isAdmin =
+                safeEmail.equalsIgnoreCase("carretaph@gmail.com") ||
+                        safeEmail.equalsIgnoreCase("carretaph@hotmail.com");
+
+        String finalName = isAdmin && Boolean.TRUE.equals(officialPost)
+                ? "Rycus Team"
+                : safeName;
 
         if (!StringUtils.hasText(safeEmail)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Author email is required");
@@ -110,7 +120,14 @@ public class PostService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Max 6 images allowed");
         }
 
-        Post saved = repo.save(new Post(safeText, safeEmail, safeName));
+        Post post = new Post(safeText, safeEmail, finalName);
+
+        if (isAdmin) {
+            post.setOfficialPost(Boolean.TRUE.equals(officialPost));
+            post.setPinned(Boolean.TRUE.equals(pinned));
+        }
+
+        Post saved = repo.save(post);
 
         if (hasFiles) {
             for (MultipartFile f : files) {
