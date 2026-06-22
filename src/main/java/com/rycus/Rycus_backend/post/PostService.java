@@ -74,6 +74,7 @@ public class PostService {
             post.setOfficialPost(Boolean.TRUE.equals(req.getOfficialPost()));
             post.setPinned(Boolean.TRUE.equals(req.getPinned()));
             post.setImageUrl(req.getImageUrl());
+            post.setVideoUrl(req.getVideoUrl());
         }
 
         Post saved = repo.save(post);
