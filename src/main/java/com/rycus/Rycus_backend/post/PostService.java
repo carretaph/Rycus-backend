@@ -53,8 +53,14 @@ public class PostService {
         String email = (req == null || req.getAuthorEmail() == null) ? "" : req.getAuthorEmail().trim();
         String name = (req == null || req.getAuthorName() == null) ? "" : req.getAuthorName().trim();
 
-        if (!StringUtils.hasText(text)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Text is required");
+        boolean hasText = StringUtils.hasText(text);
+        boolean hasVideo = req != null && StringUtils.hasText(req.getVideoUrl());
+
+        if (!hasText && !hasVideo) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Post must contain text or video"
+            );
         }
         if (!StringUtils.hasText(email)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Author email is required");
